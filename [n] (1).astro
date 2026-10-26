@@ -1,0 +1,248 @@
+---
+import Base from '../../layouts/Base.astro';
+import Player from '../../components/Player.astro';
+import QuranBar from '../../components/QuranBar.astro';
+import cfg from '../../../site.config.mjs';
+import { getMeta, getSurah, arNum } from '../../lib/data.mjs';
+import { qpc } from '../../lib/recite.mjs';
+import { u } from '../../lib/url.mjs';
+
+export function getStaticPaths() {
+  return Array.from({ length: 114 }, (_, i) => ({ params: { n: String(i + 1) } }));
+}
+const n = Number(Astro.params.n);
+const meta = getMeta();
+const s = getSurah(n);
+const prev = n > 1 ? meta.surahs[n - 2] : null;
+const next = n < 114 ? meta.surahs[n] : null;
+const showBismillah = s.bismillah && n !== 1;
+const juz = s.ayahs[0].juz;
+---
+<Base title={`${s.en} (${s.meaning})`} active="read" description={`Surah ${s.en}, ${s.ayahs.length} ayahs, with translation and recitation.`}>
+  <style>
+    .layout { display: flex; flex-wrap: wrap; gap: 32px; align-items: flex-start; padding-top: 32px; }
+    .side { flex: 1 1 260px; max-width: 300px; padding: 12px; display: flex; flex-direction: column; gap: 4px; max-height: 80vh; overflow-y: auto; position: sticky; top: 84px; }
+    .side a { display: flex; justify-content: space-between; gap: 8px; padding: 10px 12px; border-radius: 8px; text-decoration: none; color: var(--ink); font-size: 15px; }
+    .side a[aria-current="page"] { background: var(--accent-soft); color: var(--accent-strong); font-weight: 600; }
+    .content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 16px; }
+    .head { padding: 32px; display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+    .head .quran { text-align: center; font-size: 40px; line-height: 1.6; }
+    h1 { margin: 0; font-size: 26px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 8px; }
+    .settings { padding: 14px 16px; display: flex; flex-wrap: wrap; gap: 12px 20px; align-items: center; }
+    .bism { text-align: center; font-size: 34px; }
+    .ayah { padding: 20px 24px; display: flex; gap: 20px; scroll-margin-top: 90px; }
+    .ayah.playing { background: var(--accent-soft); border-color: var(--accent); }
+    .tools { display: flex; flex-direction: column; align-items: center; gap: 2px; flex: none; }
+    .key { font-size: 14px; font-weight: 600; padding: 8px 4px; }
+    .body { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    .tr { margin: 0; font-size: 17px; line-height: 1.65; }
+    .sajda { font-size: 12px; color: var(--marker); font-weight: 600; }
+    .pager { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    @media (max-width: 700px) { .side { position: static; max-height: 260px; max-width: none; order: 2; } .ayah { padding: 16px; gap: 12px; } }
+  </style>
+
+  <style is:global>
+    .surah-page .wbw { display: flex; flex-wrap: wrap; flex-direction: row-reverse; gap: 8px; }
+    .surah-page .wbw span { display: flex; flex-direction: column; align-items: center; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; min-width: 70px; }
+    .surah-page .wbw .w-ar { font-family: var(--font-quran); font-size: 24px; line-height: 1.8; }
+    .surah-page .wbw .w-tl { font-size: 12px; font-style: italic; color: var(--muted); }
+    .surah-page .wbw .w-t { font-size: 13px; text-align: center; }
+  </style>
+
+  <div class="wrap layout surah-page">
+    <nav class="card side" aria-label="All surahs">
+      {meta.surahs.map((x) => (
+        <a href={u(`surah/${x.n}/`)} aria-current={x.n === n ? 'page' : undefined}>
+          <span>{x.n}. {x.en}</span><span class="ar-ui" lang="ar">{x.ar}</span>
+        </a>
+      ))}
+    </nav>
+
+    <div class="content">
+      <section class="card head">
+        <div class="quran" lang="ar">سورة {s.ar}</div>
+        <h1>{s.en} ({s.meaning})</h1>
+        <div class="muted" style="font-size:14px">Surah {n}, {s.ayahs.length} ayahs, {s.type}, juz {juz}, starts on page {s.page}</div>
+        <div class="actions">
+          <button class="btn btn-primary" type="button" id="play-all">Play surah</button>
+          <a class="btn" href={u(`page/${s.page}/`)}>Open in mushaf</a>
+          <a class="btn" href={u(`practice/?s=${n}&from=1&to=${Math.min(s.ayahs.length, 10)}`)}>Recite from memory</a>
+        </div>
+      </section>
+
+      <section class="card settings" aria-label="Reading settings">
+        {cfg.translations.length > 1 && (
+          <div class="control">
+            <label class="field-label" for="tr-select">Translation</label>
+            <select class="field" id="tr-select">
+              {cfg.translations.map((t) => <option value={t.id}>{t.name}</option>)}
+            </select>
+          </div>
+        )}
+        <div class="control">
+          <label class="field-label" for="size">Arabic size</label>
+          <input id="size" type="range" min="22" max="52" step="2" value="32" />
+        </div>
+        {meta.wbw && (
+          <label class="control" style="min-height:44px"><input type="checkbox" id="wbw-toggle" style="width:18px;height:18px" /> Word by word</label>
+        )}
+        <label class="control" style="min-height:44px"><input type="checkbox" id="tr-toggle" checked style="width:18px;height:18px" /> Show translation</label>
+      </section>
+
+      {showBismillah && <div class="quran bism" lang="ar">{qpc(s.bismillah)}</div>}
+
+      {s.ayahs.map((ay) => (
+        <article class="card ayah" id={`a${ay.a}`} data-s={n} data-a={ay.a}>
+          <div class="tools">
+            <a class="key" href={u(`ayah/?k=${n}:${ay.a}`)} aria-label={`Study ayah ${n}:${ay.a}`}>{n}:{ay.a}</a>
+            <button class="icon-btn" type="button" data-act="play" aria-label={`Play ayah ${n}:${ay.a}`}>
+              <svg class="svg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>
+            </button>
+            <button class="icon-btn" type="button" data-act="save" aria-pressed="false" aria-label={`Bookmark ayah ${n}:${ay.a}`}>
+              <svg class="svg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>
+            </button>
+            <button class="icon-btn" type="button" data-act="copy" aria-label={`Copy ayah ${n}:${ay.a}`}>
+              <svg class="svg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M9 9h11v11H9zM5 15H4V4h11v1"></path></svg>
+            </button>
+          </div>
+          <div class="body">
+            {ay.sajda && <span class="sajda">Sajdah</span>}
+            <div class="quran" lang="ar">{qpc(ay.ar)} <span class="marker">﴿{arNum(ay.a)}﴾</span></div>
+            <div class="wbw" hidden></div>
+            {cfg.translations.map((t) => (
+              <p class="tr" lang={t.lang} dir={t.dir} data-tr={t.id} hidden={t.id !== cfg.defaultTranslation}>{ay.tr[t.id]}</p>
+            ))}
+          </div>
+        </article>
+      ))}
+
+      <nav class="pager" aria-label="Surah navigation">
+        {prev ? <a class="btn" href={u(`surah/${prev.n}/`)}>Previous: {prev.en}</a> : <span></span>}
+        {next ? <a class="btn" href={u(`surah/${next.n}/`)}>Next: {next.en}</a> : <span></span>}
+      </nav>
+    </div>
+  </div>
+
+  <Player />
+  <QuranBar mode="listen" s={n} a={1} />
+
+  <script>
+    import { initPlayer, bookmarks, lastRead, settings, getJson, pad } from '../../lib/client.mjs';
+
+    const articles = [...document.querySelectorAll('article.ayah')];
+    const surah = Number(articles[0].dataset.s);
+    const surahName = document.querySelector('h1').textContent;
+    const player = initPlayer();
+    player.setQueue(articles.map((el) => ({ s: surah, a: Number(el.dataset.a), label: `${surahName.split(' (')[0]}, ${surah}:${el.dataset.a}` })));
+
+    document.getElementById('play-all').addEventListener('click', () => player.playAll());
+
+    // highlight playing ayah
+    document.addEventListener('ql:ayah', (e) => {
+      articles.forEach((el) => el.classList.toggle('playing', `${el.dataset.s}:${el.dataset.a}` === e.detail.key));
+      const cur = articles.find((el) => el.classList.contains('playing'));
+      cur?.scrollIntoView({ block: 'center', behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+    });
+
+    // per-ayah buttons
+    for (const el of articles) {
+      const key = `${el.dataset.s}:${el.dataset.a}`;
+      const save = el.querySelector('[data-act="save"]');
+      save.setAttribute('aria-pressed', String(bookmarks.has(key)));
+      el.querySelector('[data-act="play"]').addEventListener('click', () => player.playAt(key));
+      save.addEventListener('click', () => save.setAttribute('aria-pressed', String(bookmarks.toggle(key))));
+      el.querySelector('[data-act="copy"]').addEventListener('click', async (ev) => {
+        const ar = el.querySelector('.quran').textContent.trim();
+        const tr = [...el.querySelectorAll('.tr')].find((p) => !p.hidden)?.textContent ?? '';
+        try {
+          await navigator.clipboard.writeText(`${ar}\n${tr}\n(Quran ${key})`);
+          ev.currentTarget.setAttribute('aria-label', `Copied ayah ${key}`);
+        } catch {}
+      });
+    }
+
+    // translation choice
+    const trSel = document.getElementById('tr-select');
+    const showTr = document.getElementById('tr-toggle');
+    function applyTr() {
+      const id = trSel ? trSel.value : null;
+      document.querySelectorAll('.tr').forEach((p) => {
+        p.hidden = !showTr.checked || (id ? p.dataset.tr !== id : p !== p.parentElement.querySelector('.tr'));
+      });
+    }
+    if (trSel) { trSel.value = settings.translation; trSel.addEventListener('change', () => { settings.translation = trSel.value; applyTr(); }); }
+    showTr.addEventListener('change', applyTr);
+    applyTr();
+
+    // arabic size
+    const size = document.getElementById('size');
+    const cur = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--arabic-size'), 10) || 32;
+    size.value = String(cur);
+    size.addEventListener('input', () => {
+      document.documentElement.style.setProperty('--arabic-size', size.value + 'px');
+      try { localStorage.setItem('ql-arabic-size', size.value); } catch {}
+    });
+
+    // word by word
+    const wbwToggle = document.getElementById('wbw-toggle');
+    async function applyWbw() {
+      const on = wbwToggle?.checked;
+      if (!on) { document.querySelectorAll('.wbw').forEach((d) => (d.hidden = true)); return; }
+      const data = await getJson(`wbw/${pad(surah)}.json`).catch(() => null);
+      if (!data) return;
+      for (const el of articles) {
+        const box = el.querySelector('.wbw');
+        if (!box.childElementCount) {
+          const words = (data[el.dataset.a] ?? []);
+          const arWords = el.querySelector('.quran').firstChild.textContent.trim().split(/\s+/).filter((w) => /[\u0621-\u064A\u0671]/.test(w));
+          words.forEach((w, i) => {
+            const span = document.createElement('span');
+            const a = document.createElement('b'); a.className = 'w-ar'; a.lang = 'ar'; a.textContent = arWords[i] ?? '';
+            const tl = document.createElement('i'); tl.className = 'w-tl'; tl.textContent = w.tl;
+            const t = document.createElement('small'); t.className = 'w-t'; t.textContent = w.t;
+            span.append(a, tl, t);
+            box.append(span);
+          });
+        }
+        box.hidden = false;
+      }
+    }
+    if (wbwToggle) {
+      wbwToggle.checked = settings.wbw;
+      wbwToggle.addEventListener('change', () => { settings.wbw = wbwToggle.checked; applyWbw(); });
+      applyWbw();
+    }
+
+    // bottom bar: jump to an ayah in this surah without reloading
+    document.addEventListener('ql:goto', (e) => {
+      if (e.detail.s !== surah) return;
+      e.preventDefault();
+      document.getElementById(`a${e.detail.a}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    // tajweed colours on or off
+    async function applyScript() {
+      const tj = document.documentElement.dataset.script === 'tajweed'
+        ? await getJson(`tajweed/${pad(surah)}.json`).catch(() => null) : null;
+      for (const el of articles) {
+        const q = el.querySelector('.quran');
+        q.dataset.plain ??= q.innerHTML;
+        const words = tj?.[el.dataset.a];
+        if (!words) { q.innerHTML = q.dataset.plain; continue; }
+        const mk = q.querySelector('.marker')?.outerHTML ?? '';
+        q.innerHTML = words.join(' ') + ' ' + mk;
+      }
+    }
+    document.addEventListener('ql:script', applyScript);
+    if (document.documentElement.dataset.script === 'tajweed') applyScript();
+
+    // remember position
+    const io = new IntersectionObserver((entries) => {
+      for (const e of entries) if (e.isIntersecting) {
+        lastRead.set({ s: surah, a: Number(e.target.dataset.a) });
+        document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s: surah, a: Number(e.target.dataset.a) } }));
+      }
+    }, { rootMargin: '-40% 0px -55% 0px' });
+    articles.forEach((el) => io.observe(el));
+  </script>
+</Base>

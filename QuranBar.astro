@@ -1,0 +1,115 @@
+---
+// The bottom menu on every Quran view: what you are doing, where you are, and how the text looks.
+import { getMeta } from '../lib/data.mjs';
+interface Props { mode: 'listen' | 'mushaf' | 'recite' | 'hifz'; s?: number; a?: number; }
+const { mode, s = 1, a = 1 } = Astro.props;
+const meta = getMeta();
+const riwayat = [
+  ['hafs', 'Hafs ʿan ʿĀṣim', true],
+  ['warsh', 'Warsh ʿan Nāfiʿ', false],
+  ['qaloun', 'Qālūn ʿan Nāfiʿ', false],
+  ['douri', 'Ad-Dūrī ʿan Abī ʿAmr', false],
+  ['sousi', 'As-Sūsī ʿan Abī ʿAmr', false],
+];
+---
+<nav class="qbar" id="qbar" aria-label="Quran menu" data-mode={mode} data-s={s} data-a={a} data-tajweed={meta.tajweed ? '1' : ''}>
+  <div class="qbar-row">
+    <label class="qbar-mode">View
+      <select id="qb-mode" aria-label="View">
+        <option value="listen" selected={mode === 'listen'}>Listen</option>
+        <option value="mushaf" selected={mode === 'mushaf'}>Mushaf</option>
+        <option value="recite" selected={mode === 'recite'}>Recite</option>
+        <option value="hifz" selected={mode === 'hifz'}>Hifz test</option>
+      </select>
+    </label>
+    <span class="qbar-sep" aria-hidden="true"></span>
+    <label>Surah
+      <select id="qb-surah" aria-label="Surah">
+        {meta.surahs.map((x) => <option value={x.n} data-ayahs={x.ayahs} selected={x.n === s}>{x.n}. {x.en}</option>)}
+      </select>
+    </label>
+    <label>Ayah
+      <input id="qb-ayah" type="number" min="1" max={meta.surahs[s - 1].ayahs} value={a} style="width:72px" aria-label="Ayah" />
+    </label>
+    <button class="qbar-go" type="button" id="qb-go">Go</button>
+    <span class="qbar-sep" aria-hidden="true"></span>
+    <label>Script
+      <select id="qb-script" aria-label="Script">
+        <option value="plain">Plain</option>
+        <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (needs Quran Foundation data)'}</option>
+      </select>
+    </label>
+    <label>Riwayah
+      <select id="qb-riwayah" aria-label="Riwayah">
+        {riwayat.map(([id, name, ok]) => <option value={id} disabled={!ok}>{ok ? name : `${name} (text not added yet)`}</option>)}
+      </select>
+    </label>
+  </div>
+</nav>
+
+<script>
+  import { getJson, pad, store, lastRead } from '../lib/client.mjs';
+  import { u } from '../lib/url.mjs';
+
+  const bar = document.getElementById('qbar');
+  document.body.classList.add('has-qbar');
+  const modeSel = document.getElementById('qb-mode');
+  const surahSel = document.getElementById('qb-surah');
+  const ayahIn = document.getElementById('qb-ayah');
+  const scriptSel = document.getElementById('qb-script');
+  const here = bar.dataset.mode;
+
+  // start from where the reader last was, unless this view already knows
+  const q = new URLSearchParams(location.search);
+  const lr = lastRead.get();
+  if (q.has('s')) setPos(Number(q.get('s')), Number(q.get('from') || 1));
+  else if (q.has('k')) { const [ks, ka] = q.get('k').split(':').map(Number); if (ks && ka) setPos(ks, ka); }
+  else if (lr && here !== 'listen' && here !== 'mushaf') setPos(lr.s, lr.a);
+  function setPos(s, a) {
+    surahSel.value = String(s);
+    ayahIn.max = surahSel.selectedOptions[0].dataset.ayahs;
+    ayahIn.value = String(a);
+  }
+  document.addEventListener('ql:pos', (e) => setPos(e.detail.s, e.detail.a));
+  surahSel.addEventListener('change', () => { ayahIn.max = surahSel.selectedOptions[0].dataset.ayahs; ayahIn.value = '1'; });
+
+  const pos = () => {
+    const s = Number(surahSel.value);
+    const max = Number(surahSel.selectedOptions[0].dataset.ayahs);
+    const a = Math.min(max, Math.max(1, parseInt(ayahIn.value, 10) || 1));
+    return { s, a, max };
+  };
+
+  async function open(mode, { s, a, max }) {
+    lastRead.set({ s, a });
+    if (mode === 'listen') location.href = u(`surah/${s}/#a${a}`);
+    else if (mode === 'mushaf') {
+      const sura = await getJson(`surah/${pad(s)}.json`);
+      location.href = u(`page/${sura.ayahs[a - 1].page}/?k=${s}:${a}`);
+    }
+    else if (mode === 'recite') location.href = u(`practice/?s=${s}&from=${a}&to=${max}`);
+    else if (mode === 'hifz') location.href = u(`test/?s=${s}`);
+  }
+
+  modeSel.addEventListener('change', () => open(modeSel.value, pos()));
+
+  // "Go": the current view moves in place if it can, otherwise it opens there
+  function go() {
+    const p = pos();
+    const ev = new CustomEvent('ql:goto', { detail: p, cancelable: true });
+    document.dispatchEvent(ev);
+    if (!ev.defaultPrevented) open(here, p);
+  }
+  document.getElementById('qb-go').addEventListener('click', go);
+  ayahIn.addEventListener('keydown', (e) => { if (e.key === 'Enter') go(); });
+
+  // script: plain or tajweed colours (remembered, applied live)
+  const saved = store.get('script', 'plain');
+  scriptSel.value = saved === 'tajweed' && bar.dataset.tajweed ? 'tajweed' : 'plain';
+  document.documentElement.dataset.script = scriptSel.value;
+  scriptSel.addEventListener('change', () => {
+    store.set('script', scriptSel.value);
+    document.documentElement.dataset.script = scriptSel.value;
+    document.dispatchEvent(new CustomEvent('ql:script', { detail: { script: scriptSel.value } }));
+  });
+</script>
