@@ -1,0 +1,233 @@
+---
+import Base from '../../layouts/Base.astro';
+import Player from '../../components/Player.astro';
+import cfg from '../../../site.config.mjs';
+import { getMeta, getSurah, getLayout, arNum } from '../../lib/data.mjs';
+import { tokenize, qpc } from '../../lib/recite.mjs';
+import { u } from '../../lib/url.mjs';
+
+export function getStaticPaths() {
+  return Array.from({ length: getMeta().pages.length }, (_, i) => ({ params: { n: String(i + 1) } }));
+}
+const n = Number(Astro.params.n);
+const total = getMeta().pages.length;
+// In a spread the odd page is on the right and the even page on the left, as in a printed mushaf.
+const right = n % 2 ? n : n - 1;
+const pair = [right, right + 1].filter((p) => p >= 1 && p <= total);
+
+const toks = new Map();
+const words = (s, a) => {
+  const k = `${s}:${a}`;
+  if (!toks.has(k)) toks.set(k, tokenize(getSurah(s).ayahs[a - 1].ar, k));
+  return toks.get(k);
+};
+function pageData(p) {
+  const layout = getLayout(p);
+  const onPage = [...new Set(layout.lines.filter((l) => l.t === 'a').flatMap((l) => l.w.map((w) => w[0])))];
+  const ayahs = [];
+  for (const l of layout.lines) if (l.t === 'a') for (const [s, a, wi] of l.w) if (wi === -1) ayahs.push([s, a]);
+  return { p, layout, names: onPage.map((s) => getSurah(s).ar).join(' · '), ayahs };
+}
+const pages = pair.map(pageData);
+const here = pages.find((x) => x.p === n);
+const enNames = [...new Set(here.ayahs.map(([s]) => getSurah(s).en))].join(', ');
+const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? '';
+---
+<Base title={`Mushaf page ${n}`} active="mushaf" description={`Page ${n} of the Madani mushaf: ${enNames}.`}>
+  <style is:global>
+    .mushaf-v2 .bar { background: var(--surface); border-bottom: 1px solid var(--line); }
+    .mushaf-v2 .bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 10px; padding-bottom: 10px; }
+    .mushaf-v2 .spacer { flex: 1 1 auto; }
+    .mushaf-v2 .spread { display: flex; flex-direction: row; justify-content: center; gap: 18px; padding: 20px 16px 28px; direction: rtl; touch-action: pan-y; }
+    .mushaf-v2 .paper { flex: 0 1 600px; min-width: 0; aspect-ratio: 0.66; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 6px; padding: 22px clamp(12px, 3.2vw, 34px) 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+    .mushaf-v2 .paper.partner { display: none; }
+    @media (min-width: 1100px) and (orientation: landscape) {
+      .mushaf-v2.can-spread .paper.partner { display: flex; }
+      .mushaf-v2.can-spread .paper { flex-basis: 560px; }
+    }
+    .mushaf-v2 .mp-lines { flex: 1 1 auto; justify-content: space-between; }
+    .mushaf-v2 .mp-line [data-k] { cursor: pointer; border-radius: 4px; }
+    .mushaf-v2 .mp-line .sel { background: var(--accent-soft); }
+    .mushaf-v2 .mp-line .playing { background: var(--mark); }
+    .mushaf-v2 .info { max-width: 640px; margin: 0 auto 24px; padding: 14px 18px; display: flex; flex-direction: column; gap: 8px; }
+    .mushaf-v2 .info-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+    .mushaf-v2 .hintline { text-align: center; font-size: 13px; color: var(--muted); margin: -12px 0 16px; }
+    @media (max-width: 700px) {
+      .mushaf-v2 .bar .wrap { gap: 6px; padding-top: 8px; padding-bottom: 8px; }
+      .mushaf-v2 .bar .btn { padding: 0 12px; font-size: 14px; }
+      .mushaf-v2 .bar .muted, .mushaf-v2 .spacer { display: none; }
+      .mushaf-v2 .spread { padding: 10px 6px 18px; }
+      .mushaf-v2 .paper { padding: 14px 10px 10px; }
+    }
+    body.focus .site-header, body.focus .site-footer, body.focus .mushaf-v2 .bar, body.focus .mushaf-v2 .hintline { display: none; }
+    body.focus .mushaf-v2 .spread { min-height: 100vh; align-items: center; padding: 8px; }
+    body.focus .mushaf-v2 .paper { max-height: calc(100vh - 16px); }
+    .mushaf-v2 .exit-focus { position: fixed; top: 10px; left: 10px; z-index: 40; display: none; }
+    body.focus .mushaf-v2 .exit-focus { display: inline-flex; }
+  </style>
+
+  <div class="mushaf-v2" id="mushaf" data-n={n} data-total={total} data-right={right}>
+    <div class="bar">
+      <div class="wrap">
+        {n < total ? <a class="btn" href={u(`page/${n + 1}/`)} rel="next" id="go-next" aria-label="Next page">← Next</a> : <span class="btn" aria-disabled="true">← Next</span>}
+        <form class="control" id="jump">
+          <label class="field-label" for="pg">Page</label>
+          <input class="field" id="pg" type="number" min="1" max={total} value={n} style="width:84px" />
+          <span class="muted">of {total}</span>
+        </form>
+        {n > 1 ? <a class="btn" href={u(`page/${n - 1}/`)} rel="prev" id="go-prev" aria-label="Previous page">Previous →</a> : <span class="btn" aria-disabled="true">Previous →</span>}
+        <span class="muted">{enNames}, juz {here.layout.juz}</span>
+        <span class="spacer"></span>
+        <label class="control" style="min-height:44px"><input type="checkbox" id="spread" style="width:18px;height:18px" /> Two pages</label>
+        <button class="btn" type="button" id="focus">Focus mode</button>
+        <a class="btn" href={u(`practice/?follow=1`)}>Recite</a>
+        <button class="btn btn-primary" type="button" id="play-page">Play page</button>
+      </div>
+    </div>
+
+    <div class="spread" id="spread-box">
+      {pages.map((pg) => (
+        <article class={'paper mp' + (pg.p === n ? '' : ' partner')} lang="ar" dir="rtl" aria-label={`Mushaf page ${pg.p}`} data-p={pg.p}>
+          <div class="mp-head"><span>{pg.names}</span><span>الجزء {arNum(pg.layout.juz)}</span></div>
+          <div class="mp-lines">
+            {pg.layout.lines.map((l) =>
+              l.t === 's' ? <div class="mp-line mp-banner">سورة {getSurah(l.s).ar}</div>
+              : l.t === 'b' ? <div class="mp-line mp-bism c">{qpc(getSurah(l.s).bismillah ?? '')}</div>
+              : (
+                <div class={'mp-line' + (l.c ? ' c' : '')}>
+                  {l.w.map(([s, a, wi], k) => (
+                    <>{k > 0 && ' '}{wi === -1
+                      ? <span class="mk" data-k={`${s}:${a}`}>﴿{arNum(a)}﴾</span>
+                      : <span data-k={`${s}:${a}`}>{words(s, a)[wi].display}</span>}</>
+                  ))}
+                </div>
+              )
+            )}
+          </div>
+          <div class="mp-folio">{arNum(pg.p)}</div>
+        </article>
+      ))}
+    </div>
+    <p class="hintline">Swipe or use the arrow keys to turn pages. Tap an ayah for its translation.</p>
+
+    <section class="card info" id="info" hidden aria-live="polite">
+      <b id="info-key"></b>
+      <p id="info-tr" style="margin:0;font-size:16px;line-height:1.6" lang="en"></p>
+      <div class="info-actions">
+        <button class="btn" type="button" id="info-play">Play</button>
+        <a class="btn" id="info-study" href="#">Study this ayah</a>
+        <a class="btn" id="info-read" href="#">Listen in surah view</a>
+      </div>
+    </section>
+
+    <button class="btn exit-focus" type="button" id="exit-focus">Exit focus</button>
+    <script type="application/json" id="page-ayahs" set:html={JSON.stringify(pages.map((pg) => ({ p: pg.p, ayahs: pg.ayahs.map(([s, a]) => ({ s, a, en: getSurah(s).en, tr: trOf(s, a) })) })))}></script>
+  </div>
+
+  <Player />
+
+  <script>
+    import { initPlayer, lastRead, store } from '../../lib/client.mjs';
+    import { fitPaper } from '../../lib/mushaf.mjs';
+    import { u } from '../../lib/url.mjs';
+
+    const root = document.getElementById('mushaf');
+    const n = Number(root.dataset.n), total = Number(root.dataset.total), right = Number(root.dataset.right);
+    const data = JSON.parse(document.getElementById('page-ayahs').textContent);
+    const spreadBox = document.getElementById('spread-box');
+    const spreadToggle = document.getElementById('spread');
+    const wide = matchMedia('(min-width: 1100px) and (orientation: landscape)');
+
+    // two-page spreads on wide screens, if the reader wants them
+    spreadToggle.checked = store.get('spread', true);
+    function applySpread() {
+      root.classList.toggle('can-spread', spreadToggle.checked);
+      spreadToggle.closest('label').hidden = !wide.matches;
+      fitAll();
+    }
+    const spreading = () => spreadToggle.checked && wide.matches && data.length > 1;
+    spreadToggle.addEventListener('change', () => { store.set('spread', spreadToggle.checked); applySpread(); });
+    wide.addEventListener?.('change', applySpread);
+
+    function fitAll() { document.querySelectorAll('.mushaf-v2 .paper').forEach((p) => { if (p.offsetParent) fitPaper(p); }); }
+    let rt;
+    addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fitAll, 150); });
+    applySpread();
+
+    // turning pages
+    function go(delta) {
+      const step = spreading() ? 2 : 1;
+      const base = spreading() ? right : n;
+      const target = Math.min(total, Math.max(1, base + delta * step));
+      if (target !== n && !(spreading() && target === right)) location.href = u(`page/${target}/`);
+    }
+    document.getElementById('jump').addEventListener('submit', (e) => {
+      e.preventDefault();
+      const v = Math.min(total, Math.max(1, parseInt(document.getElementById('pg').value, 10) || 1));
+      location.href = u(`page/${v}/`);
+    });
+    document.getElementById('go-next')?.addEventListener('click', (e) => { e.preventDefault(); go(1); });
+    document.getElementById('go-prev')?.addEventListener('click', (e) => { e.preventDefault(); go(-1); });
+    document.addEventListener('keydown', (e) => {
+      if (e.target.closest('input, select, textarea')) return;
+      if (e.key === 'ArrowLeft') go(1);          // the mushaf reads right to left: the next page is to the left
+      if (e.key === 'ArrowRight') go(-1);
+      if (e.key === 'Escape' && document.body.classList.contains('focus')) setFocus(false);
+    });
+    let tx = null, ty = null;
+    spreadBox.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+    spreadBox.addEventListener('touchend', (e) => {
+      if (tx === null) return;
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      tx = null;
+      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx > 0 ? 1 : -1);   // swipe right = next page
+    });
+
+    // focus mode
+    function setFocus(on) {
+      document.body.classList.toggle('focus', on);
+      try { if (on) document.documentElement.requestFullscreen?.(); else if (document.fullscreenElement) document.exitFullscreen(); } catch {}
+      setTimeout(fitAll, 120);
+    }
+    document.getElementById('focus').addEventListener('click', () => setFocus(true));
+    document.getElementById('exit-focus').addEventListener('click', () => setFocus(false));
+    document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { document.body.classList.remove('focus'); fitAll(); } });
+
+    // tapping an ayah
+    const allAyahs = data.flatMap((d) => d.ayahs);
+    const info = document.getElementById('info');
+    let selKey = null;
+    function mark(cls, key) {
+      document.querySelectorAll(`.mushaf-v2 .${cls}`).forEach((x) => x.classList.remove(cls));
+      if (key) document.querySelectorAll(`.mushaf-v2 [data-k="${key}"]`).forEach((x) => x.classList.add(cls));
+    }
+    spreadBox.addEventListener('click', (e) => {
+      const w = e.target.closest('[data-k]');
+      if (!w) return;
+      selKey = w.dataset.k;
+      const [s, a] = selKey.split(':').map(Number);
+      const ay = allAyahs.find((x) => x.s === s && x.a === a);
+      mark('sel', selKey);
+      document.getElementById('info-key').textContent = `${ay?.en ?? ''} ${selKey}`;
+      document.getElementById('info-tr').textContent = ay?.tr ?? '';
+      document.getElementById('info-study').href = u(`ayah/?k=${selKey}`);
+      document.getElementById('info-read').href = u(`surah/${s}/#a${a}`);
+      info.hidden = false;
+      lastRead.set({ s, a });
+    });
+
+    // listening
+    const player = initPlayer();
+    const visible = () => (spreading() ? data : data.filter((d) => d.p === n)).flatMap((d) => d.ayahs);
+    document.getElementById('play-page').addEventListener('click', () => {
+      player.setQueue(visible().map((x) => ({ s: x.s, a: x.a, label: `${x.en}, ${x.s}:${x.a}` })));
+      player.playAll();
+    });
+    document.getElementById('info-play').addEventListener('click', () => {
+      if (!selKey) return;
+      player.setQueue(visible().map((x) => ({ s: x.s, a: x.a, label: `${x.en}, ${x.s}:${x.a}` })));
+      player.playAt(selKey);
+    });
+    document.addEventListener('ql:ayah', (e) => mark('playing', e.detail.key));
+  </script>
+</Base>

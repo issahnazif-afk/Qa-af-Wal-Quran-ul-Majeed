@@ -1,0 +1,215 @@
+---
+import Base from '../../layouts/Base.astro';
+import Player from '../../components/Player.astro';
+---
+<Base title="Study an ayah" active="read">
+  <style is:global>
+    .ayah-page.page { padding-top: 28px; display: flex; flex-direction: column; gap: 24px; }
+    .ayah-page .crumbs { font-size: 14px; display: flex; gap: 8px; flex-wrap: wrap; color: var(--muted); }
+    .ayah-page .hero { padding: 32px; display: flex; flex-direction: column; gap: 20px; }
+    .ayah-page .hero-top { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: center; gap: 12px; }
+    .ayah-page h1 { margin: 0; font-size: 22px; }
+    .ayah-page .row { display: flex; gap: 8px; flex-wrap: wrap; }
+    .ayah-page .big { text-align: center; font-size: clamp(32px, 5vw, 48px); line-height: 2; }
+    .ayah-page .words { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 10px; direction: rtl; }
+    .ayah-page .word { padding: 14px 8px; border: 1px solid var(--line); background: var(--surface); border-radius: 12px; display: flex; flex-direction: column; align-items: center; gap: 4px; font: inherit; color: var(--ink); cursor: pointer; }
+    .ayah-page .word[aria-pressed="true"] { border: 2px solid var(--accent); background: var(--accent-soft); }
+    .ayah-page .word .w-ar { font-family: var(--font-quran); font-size: 28px; line-height: 1.8; }
+    .ayah-page .word .w-tl { font-size: 13px; font-style: italic; color: var(--muted); direction: ltr; }
+    .ayah-page .word .w-t { font-size: 14px; direction: ltr; text-align: center; }
+    .ayah-page .cols { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+    .ayah-page .main { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 12px; }
+    .ayah-page .side { flex: 1 1 320px; min-width: 0; padding: 20px; display: flex; flex-direction: column; gap: 12px; }
+    .ayah-page .tr-card { padding: 20px; }
+    .ayah-page .tr-card h3 { margin: 0 0 8px; font-size: 14px; color: var(--accent-strong); }
+    .ayah-page .tr-card p { margin: 0; font-size: 17px; line-height: 1.6; }
+    .ayah-page dl { margin: 0; display: grid; grid-template-columns: auto 1fr; gap: 10px 16px; font-size: 15px; }
+    .ayah-page dt { color: var(--muted); }
+    .ayah-page dd { margin: 0; }
+    .ayah-page .seg { padding: 10px 12px; border: 1px solid var(--line); border-radius: 8px; display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+    .ayah-page .error { padding: 24px; }
+  
+  </style>
+
+  <div class="wrap page ayah-page">
+    <nav class="crumbs" aria-label="Breadcrumb" id="crumbs"></nav>
+    <div id="root"><p class="muted">Loading ayah…</p></div>
+  </div>
+  <Player />
+
+  <template id="tpl">
+    <section class="card hero">
+      <div class="hero-top">
+        <h1 data-x="title"></h1>
+        <div class="row">
+          <a class="btn" data-x="prev">Previous ayah</a>
+          <button class="btn btn-primary" type="button" data-x="play">Play</button>
+          <button class="btn" type="button" data-x="save" aria-pressed="false">Bookmark</button>
+          <a class="btn" data-x="recite">Recite from memory</a>
+          <a class="btn" data-x="next">Next ayah</a>
+        </div>
+      </div>
+      <div class="quran big" lang="ar" data-x="ar"></div>
+      <div class="words" data-x="words"></div>
+      <p class="muted" style="margin:0;font-size:13px">Select a word to see its grammar.</p>
+    </section>
+    <div class="cols">
+      <section class="main" data-x="trs" aria-label="Translations"></section>
+      <aside class="card side" aria-label="Word details" data-x="side"></aside>
+    </div>
+  </template>
+
+  <script>
+    import cfg from '../../../site.config.mjs';
+    import { getJson, pad, initPlayer, bookmarks, lastRead } from '../../lib/client.mjs';
+    import { qpc } from '../../lib/recite.mjs';
+    import { u } from '../../lib/url.mjs';
+
+    const TAGS = {
+      N: 'Noun', PN: 'Proper noun', ADJ: 'Adjective', IMPN: 'Imperative verbal noun', PRON: 'Pronoun',
+      DEM: 'Demonstrative pronoun', REL: 'Relative pronoun', T: 'Time adverb', LOC: 'Location adverb',
+      V: 'Verb', P: 'Preposition', EMPH: 'Emphatic particle', IMPV: 'Imperative particle', PRP: 'Purpose particle',
+      CONJ: 'Coordinating conjunction', SUB: 'Subordinating conjunction', ACC: 'Accusative particle',
+      AMD: 'Amendment particle', ANS: 'Answer particle', AVR: 'Aversion particle', CAUS: 'Particle of cause',
+      CERT: 'Particle of certainty', CIRC: 'Circumstantial particle', COM: 'Comitative particle',
+      COND: 'Conditional particle', EQ: 'Equalization particle', EXH: 'Exhortation particle',
+      EXL: 'Explanation particle', EXP: 'Exceptive particle', FUT: 'Future particle', INC: 'Inceptive particle',
+      INT: 'Particle of interpretation', INTG: 'Interrogative particle', NEG: 'Negative particle',
+      PREV: 'Preventive particle', PRO: 'Prohibition particle', REM: 'Resumption particle',
+      RES: 'Restriction particle', RET: 'Retraction particle', RSLT: 'Result particle',
+      SUP: 'Supplemental particle', SUR: 'Surprise particle', VOC: 'Vocative particle',
+      INL: 'Quranic initials', DET: 'Definite article',
+    };
+    const FEATS = {
+      NOM: 'nominative', GEN: 'genitive', PERF: 'perfect', IMPF: 'imperfect', IMPV: 'imperative',
+      PASS: 'passive', INDEF: 'indefinite', ACT_PCPL: 'active participle', PASS_PCPL: 'passive participle',
+      VN: 'verbal noun', M: 'masculine', F: 'feminine', MS: 'masculine singular', FS: 'feminine singular',
+      MP: 'masculine plural', FP: 'feminine plural', MD: 'masculine dual', FD: 'feminine dual',
+      'MOOD:IND': 'indicative mood', 'MOOD:SUBJ': 'subjunctive mood', 'MOOD:JUS': 'jussive mood',
+    };
+    const describe = (seg) => {
+      const parts = seg.f.split('|').filter((x) => !['PREFIX', 'STEM', 'SUFFIX'].includes(x) && !x.startsWith('POS:') && !x.endsWith('+'));
+      const nice = parts.map((x) => {
+        if (FEATS[x]) return FEATS[x];
+        if (/^\((I|II|III|IV|V|VI|VII|VIII|IX|X|XI|XII)\)$/.test(x)) return `verb form ${x.slice(1, -1)}`;
+        if (/^[123][MF]?[SDP]$/.test(x)) return `person/gender/number ${x}`;
+        if (x === 'ACC') return 'accusative';
+        return x.replace(/\+$/, '').replace(/^(\w+):/, '$1 ');
+      });
+      return nice.filter(Boolean).join(', ');
+    };
+    const el = (tag, props = {}, text) => { const e = Object.assign(document.createElement(tag), props); if (text != null) e.textContent = text; return e; };
+    const AR = '٠١٢٣٤٥٦٧٨٩';
+    const arNum = (n) => String(n).replace(/\d/g, (d) => AR[d]);
+
+    const root = document.getElementById('root');
+    const params = new URLSearchParams(location.search);
+    const m = /^(\d{1,3}):(\d{1,3})$/.exec(params.get('k') ?? '1:1');
+
+    async function main() {
+      if (!m) throw new Error('Use a link like ?k=2:255');
+      const s = Number(m[1]), a = Number(m[2]);
+      const meta = await getJson('meta.json');
+      if (s < 1 || s > 114) throw new Error(`There is no surah ${s}. Surahs are numbered 1 to 114.`);
+      const [sura, morph, wbw] = await Promise.all([
+        getJson(`surah/${pad(s)}.json`),
+        getJson(`morph/${pad(s)}.json`).catch(() => ({})),
+        meta.wbw ? getJson(`wbw/${pad(s)}.json`).catch(() => null) : null,
+      ]);
+      const ay = sura.ayahs.find((x) => x.a === a);
+      if (!ay) throw new Error(`Surah ${sura.en} has ${sura.ayahs.length} ayahs, so ${s}:${a} does not exist.`);
+      document.title = `${sura.en} ${s}:${a} | ${cfg.appName}`;
+      lastRead.set({ s, a });
+
+      const crumbs = document.getElementById('crumbs');
+      crumbs.append(el('a', { href: u() }, 'Home'), el('span', {}, '/'), el('a', { href: u(`surah/${s}/#a${a}`) }, sura.en), el('span', {}, '/'), el('span', { style: 'color:var(--ink);font-weight:600' }, `Ayah ${a}`));
+
+      const view = document.getElementById('tpl').content.cloneNode(true);
+      const x = (k) => view.querySelector(`[data-x="${k}"]`);
+      x('title').textContent = `${sura.en} ${s}:${a}`;
+      x('ar').append(document.createTextNode(qpc(ay.ar) + ' '), el('span', { className: 'marker' }, `﴿${arNum(a)}﴾`));
+
+      // prev / next across surah boundaries
+      const prevKey = a > 1 ? `${s}:${a - 1}` : s > 1 ? `${s - 1}:${meta.surahs[s - 2].ayahs}` : null;
+      const nextKey = a < sura.ayahs.length ? `${s}:${a + 1}` : s < 114 ? `${s + 1}:1` : null;
+      prevKey ? (x('prev').href = u(`ayah/?k=${prevKey}`)) : x('prev').remove();
+      nextKey ? (x('next').href = u(`ayah/?k=${nextKey}`)) : x('next').remove();
+
+      x('recite').href = u(`practice/?s=${s}&from=${a}&to=${a}`);
+      const saveBtn = x('save');
+      saveBtn.setAttribute('aria-pressed', String(bookmarks.has(`${s}:${a}`)));
+      saveBtn.addEventListener('click', () => saveBtn.setAttribute('aria-pressed', String(bookmarks.toggle(`${s}:${a}`))));
+
+      // words
+      const words = morph[a] ?? [];
+      const meanings = wbw?.[a] ?? [];
+      const side = x('side');
+      function showWord(i) {
+        const w = words[i];
+        side.replaceChildren();
+        if (!w) { side.append(el('p', { className: 'muted', style: 'margin:0' }, 'No grammar data for this word.')); return; }
+        const head = el('div', { style: 'display:flex;justify-content:space-between;align-items:baseline;gap:12px' });
+        head.append(el('b', {}, `Word ${i + 1}`), el('span', { lang: 'ar', style: 'font-family:var(--font-quran);font-size:30px' }, qpc(w.ar)));
+        const dl = el('dl');
+        const add = (k, v, ar) => { if (!v) return; dl.append(el('dt', {}, k), el('dd', ar ? { lang: 'ar', dir: 'rtl', className: 'ar-ui', style: 'text-align:left;font-size:18px' } : {}, v)); };
+        add('Location', `${s}:${a}:${i + 1}`);
+        add('Meaning', meanings[i]?.t);
+        add('Root', w.root, true);
+        add('Lemma', w.lem, true);
+        side.append(head, dl, el('b', { style: 'margin-top:4px' }, 'Parts of the word'));
+        for (const seg of w.segs) {
+          const row = el('div', { className: 'seg' });
+          const left = el('div');
+          left.append(el('div', { style: 'font-weight:600' }, TAGS[seg.tag] ?? seg.tag), el('div', { className: 'muted', style: 'font-size:13px' }, describe(seg)));
+          row.append(left, el('span', { lang: 'ar', style: 'font-family:var(--font-quran);font-size:24px' }, qpc(seg.ar)));
+          side.append(row);
+        }
+        const corpus = el('a', { href: `https://corpus.quran.com/wordmorphology.jsp?location=(${s}:${a}:${i + 1})`, rel: 'noopener', target: '_blank' }, 'Open this word in the Quranic Arabic Corpus');
+        side.append(corpus, el('p', { className: 'muted', style: 'margin:0;font-size:12px' }, 'Grammar: Quranic Arabic Corpus (GPL). Meanings: Quran Foundation.'));
+      }
+      const wordBox = x('words');
+      words.forEach((w, i) => {
+        const b = el('button', { type: 'button', className: 'word' });
+        b.setAttribute('aria-pressed', String(i === 0));
+        b.append(el('span', { className: 'w-ar', lang: 'ar' }, qpc(w.ar)));
+        if (meanings[i]) b.append(el('span', { className: 'w-tl' }, meanings[i].tl), el('span', { className: 'w-t' }, meanings[i].t));
+        b.addEventListener('click', () => {
+          wordBox.querySelectorAll('.word').forEach((o) => o.setAttribute('aria-pressed', String(o === b)));
+          showWord(i);
+        });
+        wordBox.append(b);
+      });
+      showWord(0);
+
+      // translations + tafsir link
+      const trs = x('trs');
+      for (const t of cfg.translations) {
+        const c = el('div', { className: 'card tr-card' });
+        c.append(el('h3', {}, t.name), el('p', { lang: t.lang, dir: t.dir }, ay.tr[t.id] ?? ''));
+        trs.append(c);
+      }
+      const taf = el('div', { className: 'card tr-card' });
+      taf.append(el('h3', {}, 'Tafsir'), el('p', { className: 'muted', style: 'font-size:16px' }, 'Commentary is not bundled yet.'));
+      const tafLink = el('a', { href: `https://quran.com/${s}:${a}/tafsirs`, rel: 'noopener', target: '_blank', style: 'display:inline-block;margin-top:8px;font-weight:600;padding:8px 0' }, 'Read tafsir on Quran.com');
+      taf.append(tafLink);
+      trs.append(taf);
+
+      const facts = el('div', { className: 'card tr-card' });
+      facts.append(el('h3', {}, 'Where it is'));
+      const fdl = el('dl');
+      [['Surah', `${sura.n}. ${sura.en} (${sura.meaning})`], ['Juz', ay.juz], ['Mushaf page', ay.page]].forEach(([k, v]) => fdl.append(el('dt', {}, k), el('dd', {}, String(v))));
+      facts.append(fdl, el('a', { href: u(`page/${ay.page}/`), style: 'display:inline-block;margin-top:8px;font-weight:600;padding:8px 0' }, 'Open this page in the mushaf'));
+      trs.append(facts);
+
+      root.replaceChildren(view);
+
+      const player = initPlayer();
+      player.setQueue([{ s, a, label: `${sura.en}, ${s}:${a}` }]);
+      root.querySelector('[data-x="play"]').addEventListener('click', () => player.playAll());
+    }
+
+    main().catch((e) => {
+      root.replaceChildren(el('div', { className: 'card error' }, e.message));
+    });
+  </script>
+</Base>

@@ -1,0 +1,64 @@
+---
+import Base from '../../layouts/Base.astro';
+---
+<Base title="About and sources" active="about">
+  <style>
+    .page { padding-top: 36px; display: flex; flex-direction: column; gap: 20px; }
+    h1 { margin: 0; font-size: 32px; }
+    h2 { margin: 12px 0 0; font-size: 22px; }
+    .src { padding: 20px; display: flex; flex-direction: column; gap: 6px; }
+    .src p { margin: 0; }
+    .notice { font-size: 13px; white-space: pre-wrap; background: var(--bg); border-radius: 8px; padding: 12px; margin-top: 6px; }
+  </style>
+  <div class="narrow page">
+    <h1>About and sources</h1>
+    <p style="margin:0;font-size:17px">This is a free, open website for reading and studying the Quran. It has no server and no database: a GitHub Action gathers open datasets, turns them into small JSON files, and GitHub Pages hosts the result. Your bookmarks and settings stay in your browser.</p>
+
+    <h2>Sources and licences</h2>
+    <div class="card src">
+      <b>Quran text: Tanzil Project</b>
+      <p>Uthmani text, version 1.1. Licence: Creative Commons Attribution 3.0. <a href="https://tanzil.net" rel="noopener">tanzil.net</a></p>
+      <div class="notice">Tanzil Quran Text (Uthmani, Version 1.1)
+Copyright (C) 2007-2026 Tanzil Project
+License: Creative Commons Attribution 3.0
+
+This copy of the Quran text is carefully produced, highly verified and continuously monitored by a group of specialists at Tanzil Project.
+
+TERMS OF USE:
+- Permission is granted to copy and distribute verbatim copies of this text, but CHANGING IT IS NOT ALLOWED.
+- This Quran text can be used in any website or application, provided that its source (Tanzil Project) is clearly indicated, and a link is made to tanzil.net to enable users to keep track of changes.
+- This copyright notice shall be included in all verbatim copies of the text, and shall be reproduced appropriately in all files derived from or containing substantial portion of this text.
+
+Please check updates at: http://tanzil.net/updates/</div>
+    </div>
+    <div class="card src">
+      <b>Morphology: Quranic Arabic Corpus</b>
+      <p>Version 0.4, copyright (C) 2011 Kais Dukes. Licence: GNU General Public License. <a href="https://corpus.quran.com" rel="noopener">corpus.quran.com</a></p>
+    </div>
+    <div class="card src">
+      <b>Translations and metadata: AlQuran.cloud</b>
+      <p>Translation text and mushaf page, juz and sajdah boundaries. <a href="https://alquran.cloud" rel="noopener">alquran.cloud</a></p>
+    </div>
+    <div class="card src">
+      <b>Recitations: EveryAyah</b>
+      <p>Ayah-by-ayah audio, streamed directly. <a href="https://everyayah.com" rel="noopener">everyayah.com</a></p>
+    </div>
+    <div class="card src">
+      <b>Word by word: Quran Foundation</b>
+      <p>Word meanings and transliteration, when enabled. <a href="https://quran.foundation" rel="noopener">quran.foundation</a></p>
+    </div>
+    <div class="card src">
+      <b>Mushaf page layout: Quranic Universal Library (QUL), Tarteel</b>
+      <p>KFGQPC V2 layout, 604 pages of 15 lines (1421H Madani print), from <a href="https://qul.tarteel.ai" rel="noopener">qul.tarteel.ai</a>. Every line of the mushaf pages breaks where it does in print.</p>
+    </div>
+    <div class="card src">
+      <b>Quran font: King Fahd Glorious Quran Printing Complex</b>
+      <p>KFGQPC HAFS Uthmanic Script, version 2.2, used unmodified under the Complex’s free end-user licence. To suit this font, a few marks are shown with the code points it uses for the same signs (for example the round sign over a silent letter); the Tanzil text itself is not changed.</p>
+    </div>
+    <div class="card src">
+      <b>Other fonts</b>
+      <p>Amiri Quran (fallback) and IBM Plex Sans, via Google Fonts, under the SIL Open Font Licence.</p>
+    </div>
+    <p class="muted" style="margin:0">If you notice an error in any text, please report it to the original source so every app that uses it benefits.</p>
+  </div>
+</Base>

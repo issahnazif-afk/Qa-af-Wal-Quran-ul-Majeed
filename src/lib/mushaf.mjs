@@ -1,0 +1,72 @@
+// Builds a mushaf page in the browser from the QUL line layout (604 pages × 15 lines),
+// so every line breaks exactly where it does in the printed Madani mushaf.
+import { tokenize, qpc } from './recite.mjs';
+
+const AR = '٠١٢٣٤٥٦٧٨٩';
+export const arNum = (n) => String(n).replace(/\d/g, (d) => AR[d]);
+const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+
+// opts: { getJson, pad, items: Map("s:a" → item), wordSpan(word) → span, markerSpan(item, ayah) → span }
+// Items are the ayahs being recited (key "s:0" is a Bismillah). Everything else on the page is shown as "out".
+export async function buildPaper(p, opts) {
+  const { getJson, pad, items = new Map(), wordSpan, markerSpan } = opts;
+  const layout = await getJson(`layout/${pad(p)}.json`);
+  const nums = new Set();
+  for (const l of layout.lines) { if (l.t === 'a') for (const w of l.w) nums.add(w[0]); else nums.add(l.s); }
+  const suras = new Map();
+  await Promise.all([...nums].map(async (s) => suras.set(s, await getJson(`surah/${pad(s)}.json`))));
+  const toks = new Map();
+  const outWords = (s, a) => {
+    const k = `${s}:${a}`;
+    if (!toks.has(k)) toks.set(k, tokenize(suras.get(s).ayahs[a - 1].ar, k));
+    return toks.get(k);
+  };
+
+  const paper = el('article', 'paper mp');
+  paper.lang = 'ar'; paper.dir = 'rtl';
+  paper.setAttribute('aria-label', `Mushaf page ${p}`);
+  const onPage = [...new Set(layout.lines.filter((l) => l.t === 'a').flatMap((l) => l.w.map((w) => w[0])))];
+  const head = el('div', 'mp-head');
+  head.append(el('span', null, onPage.map((s) => suras.get(s).ar).join(' · ')), el('span', null, `الجزء ${arNum(layout.juz)}`));
+  const box = el('div', 'mp-lines');
+
+  for (const l of layout.lines) {
+    if (l.t === 's') { box.append(el('div', 'mp-line mp-banner', `سورة ${suras.get(l.s).ar}`)); continue; }
+    if (l.t === 'b') {
+      const line = el('div', 'mp-line mp-bism c');
+      const bItem = items.get(`${l.s}:0`);
+      if (bItem && wordSpan) bItem.words.forEach((w, i) => { if (i) line.append(' '); line.append(wordSpan(w)); });
+      else line.append(el('span', items.size && !items.has(`${l.s}:1`) ? 'out' : '', qpc(suras.get(l.s).bismillah ?? '')));
+      box.append(line);
+      continue;
+    }
+    const line = el('div', 'mp-line' + (l.c ? ' c' : ''));
+    l.w.forEach(([s, a, wi], k) => {
+      if (k) line.append(' ');
+      const it = items.get(`${s}:${a}`);
+      if (wi === -1) line.append(it && markerSpan ? markerSpan(it, a) : el('span', 'mk' + (items.size ? ' out' : ''), `﴿${arNum(a)}﴾`));
+      else if (it && wordSpan) line.append(wordSpan(it.words[wi]));
+      else line.append(el('span', items.size ? 'out' : '', outWords(s, a)[wi].display));
+    });
+    box.append(line);
+  }
+  paper.append(head, box, el('div', 'mp-folio', arNum(p)));
+  return paper;
+}
+
+// Choose the largest text size at which no line of the page overflows its width.
+export async function fitPaper(paper) {
+  if (!paper?.isConnected) return;
+  try { await document.fonts.load('24px "KFGQPC Hafs"'); } catch {}
+  const box = paper.querySelector('.mp-lines');
+  if (!box) return;
+  const lines = [...box.querySelectorAll('.mp-line:not(.mp-banner)')];
+  let fs = Math.min(36, Math.max(13, box.clientWidth / 16.5));
+  paper.style.setProperty('--mfs', `${fs}px`);
+  for (let k = 0; k < 30; k++) {
+    // allow for the small padding around each word on the Recite and Hifz pages
+    if (!lines.some((l) => l.scrollWidth > l.clientWidth + Math.max(2, fs * 0.2))) break;
+    fs *= 0.965;
+    paper.style.setProperty('--mfs', `${fs}px`);
+  }
+}

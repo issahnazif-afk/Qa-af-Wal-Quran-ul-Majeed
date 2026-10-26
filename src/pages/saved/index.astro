@@ -1,0 +1,45 @@
+---
+import Base from '../../layouts/Base.astro';
+import { u } from '../../lib/url.mjs';
+---
+<Base title="Saved ayahs" active="saved">
+  <div class="narrow" style="padding-top:36px;display:flex;flex-direction:column;gap:16px">
+    <h1 style="margin:0;font-size:28px">Saved ayahs</h1>
+    <p class="muted" style="margin:0">Bookmarks are stored only in this browser.</p>
+    <div id="list" style="display:flex;flex-direction:column;gap:10px"></div>
+    <div id="empty" class="card" style="padding:24px" hidden>
+      Nothing saved yet. Use the bookmark button beside any ayah, then find it here.
+      <div style="margin-top:12px"><a class="btn btn-primary" href={u('surah/1/')}>Start reading</a></div>
+    </div>
+  </div>
+  <script>
+    import { bookmarks, getJson, pad } from '../../lib/client.mjs';
+    import { qpc } from '../../lib/recite.mjs';
+    import { u } from '../../lib/url.mjs';
+    const list = document.getElementById('list');
+    const keys = bookmarks.all();
+    document.getElementById('empty').hidden = keys.length > 0;
+    for (const key of keys) {
+      const [s, a] = key.split(':').map(Number);
+      const card = document.createElement('div');
+      card.className = 'card';
+      card.style.cssText = 'padding:18px 20px;display:flex;flex-direction:column;gap:8px';
+      list.append(card);
+      getJson(`surah/${pad(s)}.json`).then((sura) => {
+        const ay = sura.ayahs.find((x) => x.a === a);
+        const top = document.createElement('div');
+        top.style.cssText = 'display:flex;justify-content:space-between;gap:12px;align-items:center;flex-wrap:wrap';
+        const link = Object.assign(document.createElement('a'), { href: u(`ayah/?k=${key}`), textContent: `${sura.en} ${key}` });
+        link.style.fontWeight = '600';
+        const rm = Object.assign(document.createElement('button'), { type: 'button', className: 'btn', textContent: 'Remove' });
+        rm.addEventListener('click', () => { bookmarks.toggle(key); card.remove(); if (!bookmarks.all().length) document.getElementById('empty').hidden = false; });
+        top.append(link, rm);
+        const ar = Object.assign(document.createElement('div'), { className: 'quran', lang: 'ar', textContent: qpc(ay.ar) });
+        ar.style.fontSize = '26px';
+        const tr = Object.assign(document.createElement('p'), { textContent: Object.values(ay.tr)[0] });
+        tr.style.margin = '0';
+        card.append(top, ar, tr);
+      });
+    }
+  </script>
+</Base>

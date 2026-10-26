@@ -1,0 +1,87 @@
+---
+import '../styles/global.css';
+import cfg from '../../site.config.mjs';
+import { u } from '../lib/url.mjs';
+
+interface Props { title?: string; description?: string; active?: string; }
+const { title, description = 'Read, listen to and study the Quran from open, authentic sources.', active = '' } = Astro.props;
+const fullTitle = title ? `${title} | ${cfg.appName}` : cfg.appName;
+const nav = [
+  ['read', 'Listen', 'surah/1/'],
+  ['mushaf', 'Mushaf', 'page/1/'],
+  ['practice', 'Recite', 'practice/'],
+  ['test', 'Hifz test', 'test/'],
+  ['resources', 'Resources', 'resources/'],
+  ['search', 'Search', 'search/'],
+  ['saved', 'Saved', 'saved/'],
+  ['about', 'About & sources', 'about/'],
+];
+---
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{fullTitle}</title>
+  <meta name="description" content={description} />
+  <meta name="theme-color" content="#0E6B4E" />
+  <link rel="icon" href={u('favicon.svg')} type="image/svg+xml" />
+  <link rel="manifest" href={u('manifest.webmanifest')} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=IBM+Plex+Sans+Arabic:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" />
+  <link rel="preload" href={u('fonts/UthmanicHafs_V22.ttf')} as="font" type="font/ttf" crossorigin />
+  <style is:inline set:html={`@font-face{font-family:"KFGQPC Hafs";src:url("${u('fonts/UthmanicHafs_V22.ttf')}") format("truetype");font-display:swap}`}></style>
+  <script is:inline>
+    (function () {
+      try {
+        var t = localStorage.getItem('ql-theme');
+        if (t) document.documentElement.dataset.theme = t;
+        var s = localStorage.getItem('ql-arabic-size');
+        if (s) document.documentElement.style.setProperty('--arabic-size', s + 'px');
+      } catch (e) {}
+    })();
+  </script>
+</head>
+<body>
+  <a class="visually-hidden" href="#main">Skip to content</a>
+  <header class="site-header">
+    <div class="wrap">
+      <a class="brand" href={u()}><span class="brand-mark" aria-hidden="true">ق</span>{cfg.appName}</a>
+      <nav class="site-nav" aria-label="Main">
+        {nav.map(([id, label, href]) => (
+          <a href={u(href)} aria-current={active === id ? 'page' : undefined}>{label}</a>
+        ))}
+      </nav>
+      <button class="icon-btn" id="theme-toggle" type="button" aria-label="Switch light or dark theme">
+        <svg class="svg-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"></path></svg>
+      </button>
+    </div>
+  </header>
+  <main id="main">
+    <slot />
+  </main>
+  <footer class="site-footer">
+    <div class="wrap">
+      <span>Quran text: <a href="https://tanzil.net" rel="noopener">Tanzil Project</a>, shown verbatim. Every other dataset is credited on <a href={u('about/')}>About &amp; sources</a>.</span>
+      <span>Free and open, hosted on GitHub Pages.</span>
+    </div>
+  </footer>
+  <script>
+    import { u } from '../lib/url.mjs';
+    const btn = document.getElementById('theme-toggle');
+    btn?.addEventListener('click', () => {
+      const root = document.documentElement;
+      const dark = root.dataset.theme
+        ? root.dataset.theme === 'dark'
+        : matchMedia('(prefers-color-scheme: dark)').matches;
+      const next = dark ? 'light' : 'dark';
+      root.dataset.theme = next;
+      try { localStorage.setItem('ql-theme', next); } catch {}
+    });
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register(u('sw.js'), { scope: u() }).catch(() => {});
+    }
+  </script>
+</body>
+</html>

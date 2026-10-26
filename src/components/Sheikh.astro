@@ -1,0 +1,102 @@
+---
+// The examiner. Original illustration. Set data-state on #sheikh to:
+// idle | speaking | listening | stop | prompt
+---
+<div class="sheikh" id="sheikh" data-state="idle">
+  <svg viewBox="0 0 240 250" role="img" aria-labelledby="sheikh-title">
+    <title id="sheikh-title">The Sheikh, your examiner</title>
+    <circle cx="120" cy="125" r="118" class="sh-bg" />
+
+    <!-- turban tail falling behind the left shoulder -->
+    <path d="M86 92 C70 120 66 160 72 200 L86 200 C84 165 88 128 98 102 Z" fill="#F4F4F1" stroke="#D3D7D2" stroke-width="1.5" />
+
+    <!-- thobe -->
+    <path d="M36 250 C40 196 78 176 120 176 C162 176 200 196 204 250 Z" fill="#FBFBF8" stroke="#D3D7D2" stroke-width="1.5" />
+    <!-- bisht (cloak) with gold trim -->
+    <path d="M36 250 C40 200 66 182 98 177 L90 250 Z" fill="#3A2E24" />
+    <path d="M204 250 C200 200 174 182 142 177 L150 250 Z" fill="#3A2E24" />
+    <path d="M98 177 L90 250" stroke="#C9A24A" stroke-width="3" fill="none" />
+    <path d="M142 177 L150 250" stroke="#C9A24A" stroke-width="3" fill="none" />
+    <!-- collar opening -->
+    <path d="M112 178 L120 196 L128 178" fill="none" stroke="#D3D7D2" stroke-width="2" />
+
+    <g class="sh-head">
+      <!-- neck -->
+      <rect x="107" y="150" width="26" height="30" rx="8" fill="#B97E55" />
+      <!-- face -->
+      <ellipse cx="120" cy="116" rx="38" ry="44" fill="#C68B5E" />
+      <!-- ears -->
+      <ellipse cx="82" cy="118" rx="6" ry="10" fill="#B97E55" />
+      <ellipse cx="158" cy="118" rx="6" ry="10" fill="#B97E55" />
+      <!-- beard -->
+      <path d="M83 112 C82 156 100 178 120 180 C140 178 158 156 157 112 C150 136 136 142 120 142 C104 142 90 136 83 112 Z" fill="#E4E1DA" stroke="#CFCBC2" stroke-width="1" />
+      <!-- moustache -->
+      <path d="M104 140 C110 134 116 135 120 138 C124 135 130 134 136 140 C130 142 124 141 120 140 C116 141 110 142 104 140 Z" fill="#D8D4CB" />
+      <!-- mouth -->
+      <ellipse class="sh-mouth" cx="120" cy="147" rx="7" ry="2.6" fill="#5A2E22" />
+      <!-- nose -->
+      <path d="M120 112 C117 122 116 127 120 129 C123 129 124 127 123 125" fill="none" stroke="#9E6843" stroke-width="2" stroke-linecap="round" />
+      <!-- eyebrows -->
+      <path d="M97 99 C102 95 109 95 113 98" fill="none" stroke="#BDB8AE" stroke-width="3.2" stroke-linecap="round" />
+      <path d="M127 98 C131 95 138 95 143 99" fill="none" stroke="#BDB8AE" stroke-width="3.2" stroke-linecap="round" />
+      <!-- eyes -->
+      <g class="sh-eyes">
+        <ellipse cx="105" cy="108" rx="3.6" ry="3.8" fill="#2A211B" />
+        <ellipse cx="135" cy="108" rx="3.6" ry="3.8" fill="#2A211B" />
+      </g>
+      <!-- turban (imama) -->
+      <path d="M78 98 C70 56 96 40 120 40 C144 40 170 56 162 98 C150 86 136 80 120 80 C104 80 90 86 78 98 Z" fill="#FFFFFF" stroke="#D3D7D2" stroke-width="1.5" />
+      <path d="M82 84 C98 70 142 70 158 84" fill="none" stroke="#DCE0DB" stroke-width="2" />
+      <path d="M86 70 C104 58 136 58 154 70" fill="none" stroke="#DCE0DB" stroke-width="2" />
+      <path d="M96 56 C110 50 130 50 144 56" fill="none" stroke="#DCE0DB" stroke-width="2" />
+    </g>
+
+    <!-- sound waves while reciting -->
+    <g class="sh-waves" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round">
+      <path d="M176 136 C182 142 182 152 176 158" />
+      <path d="M188 128 C198 140 198 154 188 166" />
+      <path d="M200 120 C214 138 214 156 200 174" />
+    </g>
+
+    <!-- listening: waves arriving at the ear -->
+    <g class="sh-listen" fill="none" stroke="var(--accent)" stroke-width="3" stroke-linecap="round">
+      <path d="M58 108 C52 114 52 124 58 130" />
+      <path d="M46 100 C36 112 36 126 46 138" />
+    </g>
+
+    <!-- raised hand for "stop" -->
+    <g class="sh-hand">
+      <path d="M170 250 L174 196" stroke="#FBFBF8" stroke-width="22" stroke-linecap="round" />
+      <rect x="160" y="160" width="30" height="36" rx="12" fill="#C68B5E" />
+      <rect x="161" y="140" width="6.5" height="26" rx="3.2" fill="#C68B5E" />
+      <rect x="168.5" y="135" width="6.5" height="30" rx="3.2" fill="#C68B5E" />
+      <rect x="176" y="137" width="6.5" height="28" rx="3.2" fill="#C68B5E" />
+      <rect x="183.5" y="143" width="6" height="24" rx="3" fill="#C68B5E" />
+      <rect x="150" y="168" width="14" height="7" rx="3.5" fill="#C68B5E" transform="rotate(-30 157 171)" />
+    </g>
+  </svg>
+</div>
+
+<style is:global>
+  .sheikh { width: 100%; max-width: 220px; aspect-ratio: 240 / 250; }
+  .sheikh svg { width: 100%; height: 100%; display: block; }
+  .sheikh .sh-bg { fill: var(--accent-soft); }
+  .sheikh .sh-mouth, .sheikh .sh-eyes, .sheikh .sh-head { transform-box: fill-box; transform-origin: center; }
+  .sheikh .sh-head { transform-origin: 50% 100%; transition: transform .5s ease; }
+  .sheikh .sh-waves, .sheikh .sh-listen, .sheikh .sh-hand { opacity: 0; transition: opacity .3s ease, transform .3s ease; }
+  .sheikh .sh-hand { transform: translateY(30px); }
+
+  .sheikh[data-state="speaking"] .sh-mouth, .sheikh[data-state="prompt"] .sh-mouth { animation: sh-talk .32s ease-in-out infinite alternate; }
+  .sheikh[data-state="speaking"] .sh-waves, .sheikh[data-state="prompt"] .sh-waves { opacity: 1; animation: sh-pulse 1.2s ease-in-out infinite; }
+  .sheikh[data-state="listening"] .sh-listen { opacity: 1; animation: sh-pulse 1.6s ease-in-out infinite; }
+  .sheikh[data-state="listening"] .sh-head { transform: rotate(-4deg); }
+  .sheikh[data-state="stop"] .sh-hand { opacity: 1; transform: none; }
+  .sheikh .sh-eyes { animation: sh-blink 4.5s infinite; }
+
+  @keyframes sh-talk { from { transform: scaleY(.6); } to { transform: scaleY(2.4); } }
+  @keyframes sh-pulse { 0%, 100% { opacity: .35; } 50% { opacity: 1; } }
+  @keyframes sh-blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+  @media (prefers-reduced-motion: reduce) {
+    .sheikh * { animation: none !important; transition: none !important; }
+  }
+</style>

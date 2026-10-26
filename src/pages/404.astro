@@ -1,0 +1,11 @@
+---
+import Base from '../layouts/Base.astro';
+import { u } from '../lib/url.mjs';
+---
+<Base title="Page not found">
+  <div class="narrow" style="padding-top:64px;display:flex;flex-direction:column;gap:16px">
+    <h1 style="margin:0">This page does not exist</h1>
+    <p class="muted" style="margin:0">Check the address, or search for a surah, an ayah or a page.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><a class="btn btn-primary" href={u('search/')}>Search</a><a class="btn" href={u()}>Go home</a></div>
+  </div>
+</Base>

@@ -1,0 +1,904 @@
+---
+import Base from '../../layouts/Base.astro';
+import Sheikh from '../../components/Sheikh.astro';
+import cfg from '../../../site.config.mjs';
+import { getMeta } from '../../lib/data.mjs';
+const meta = getMeta();
+---
+<Base title="Hifz test" active="test" description="The Sheikh recites a random ayah. You continue from it, from memory, until he asks you to stop.">
+  <style is:global>
+    @property --ink { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
+
+    .practice.page { padding-top: 28px; display: flex; flex-direction: column; gap: 16px; }
+    .practice h1 { margin: 0; font-size: 30px; }
+    .practice .setup { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .practice .modes { display: flex; gap: 4px; background: var(--line); padding: 4px; border-radius: 10px; align-self: flex-start; }
+    .practice .modes button { min-height: 44px; padding: 0 16px; border: none; border-radius: 8px; background: transparent; font: inherit; color: var(--ink); cursor: pointer; }
+    .practice .modes button[aria-selected="true"] { background: var(--surface); font-weight: 600; }
+    .practice .fields { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: end; }
+    .practice .fields .control { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .practice .checks { display: flex; flex-wrap: wrap; gap: 0 18px; }
+    .practice .checks label { display: flex; align-items: center; gap: 8px; min-height: 44px; }
+    .practice .checks input { width: 18px; height: 18px; }
+    .practice .summary-bar { padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; }
+
+    .practice .toolbar { position: sticky; top: 72px; z-index: 5; padding: 12px 16px; display: flex; flex-direction: column; gap: 10px; }
+    .practice .tool-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; justify-content: center; }
+    .practice .mic { min-width: 190px; height: 48px; border-radius: 999px; font-size: 16px; }
+    .practice .mic[aria-pressed="true"] { background: #B3261E; border-color: #B3261E; color: #fff; }
+    .practice .status { margin: 0; min-height: 1.5em; text-align: center; font-size: 15px; }
+    .practice .status.bad { color: #B3261E; }
+    .practice .status.good { color: var(--accent-strong); }
+    .practice .where { text-align: center; font-size: 13px; color: var(--muted); }
+    .practice .heard { text-align: center; font-family: var(--font-ar-ui); font-size: 14px; color: var(--muted); min-height: 1.4em; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+    .practice .choices { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; align-items: center; }
+    .practice .waiting { flex: 1 1 auto; display: grid; place-items: center; text-align: center; font-family: var(--font-ui); color: var(--muted); font-size: 16px; padding: 40px 12px; }
+    .practice .progress { height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+    .practice .progress span { display: block; height: 100%; width: 0; background: var(--accent); transition: width .4s ease-out; }
+
+    /* the blank mushaf page */
+    .practice .stage { display: flex; justify-content: center; }
+    .practice .paper { width: 100%; max-width: 660px; min-height: 860px; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 4px; padding: 28px clamp(14px, 4vw, 40px); display: flex; flex-direction: column; gap: 14px; box-shadow: 0 1px 3px rgba(0,0,0,.08); }
+    .practice .paper.turn-in { animation: ql-turn .45s ease-out; }
+    @keyframes ql-turn { from { opacity: 0; transform: translateX(-18px); } to { opacity: 1; transform: none; } }
+    .practice .running { display: flex; justify-content: space-between; font-family: var(--font-ar-ui); font-size: 14px; color: var(--paper-ink); }
+    .practice .banner { border: 2px solid var(--paper-line); border-radius: 6px; padding: 8px; text-align: center; font-family: var(--font-quran); font-size: 26px; color: var(--paper-ink); }
+    .practice .bism { text-align: center; font-family: var(--font-quran); font-size: clamp(22px, 3.4vw, 28px); line-height: 2.2; }
+    .practice .text { font-family: var(--font-quran); font-size: clamp(22px, 3.4vw, 30px); line-height: 2.4; text-align: justify; text-align-last: center; direction: rtl; }
+    .practice .folio { margin-top: auto; text-align: center; font-family: var(--font-ar-ui); color: var(--paper-ink); }
+
+    /* words: hidden → hint → ink flowing in from the right → shown */
+    .practice { --good: #13804F; --bad: #B3261E; --replay: rgba(19, 128, 79, .22); }
+    :root[data-theme="dark"] .practice { --good: #5BD39A; --bad: #FF8A80; --replay: rgba(91, 211, 154, .25); }
+    @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .practice { --good: #5BD39A; --bad: #FF8A80; --replay: rgba(91, 211, 154, .25); } }
+    .practice .w { display: inline-block; padding: 0 .08em; margin: 0 -.08em; border-radius: 3px; color: var(--ink); transition: color .8s ease, background-color .6s ease; }
+    .practice .w.hidden { color: transparent; }
+    .practice .paper.outlines .w.hidden { box-shadow: inset 0 -1px 0 var(--paper-line); }
+    .practice .w.current { box-shadow: inset 0 -2px 0 var(--accent) !important; }
+    .practice .w.current.wrong { box-shadow: inset 0 -3px 0 var(--bad) !important; background: rgba(179, 38, 30, .12); }
+    .practice .w.weak { color: var(--bad); box-shadow: inset 0 -2px 0 rgba(179, 38, 30, .35); }
+    .practice .w.missed { box-shadow: inset 0 -3px 0 var(--bad) !important; background: rgba(179, 38, 30, .12); }
+    .practice .w.helped { color: var(--marker); }
+    .practice .w.unclear { background-image: radial-gradient(circle, var(--muted) 1px, transparent 1.6px); background-size: 6px 4px; background-repeat: repeat-x; background-position: 0 100%; }
+    .practice .w.fresh { color: var(--good); transition: none; }
+    .practice .w.replay { background: linear-gradient(transparent 24%, var(--replay) 24%, var(--replay) 84%, transparent 84%); }
+    .practice .w.hint { color: var(--muted); -webkit-mask-image: linear-gradient(to left, #000 26%, transparent 34%); mask-image: linear-gradient(to left, #000 26%, transparent 34%); }
+    .practice .w.ink {
+      -webkit-mask-image: linear-gradient(to left, #000 calc(var(--ink) - 14%), transparent calc(var(--ink) + 6%));
+      mask-image: linear-gradient(to left, #000 calc(var(--ink) - 14%), transparent calc(var(--ink) + 6%));
+      animation: ql-ink var(--dur, 400ms) linear forwards;
+    }
+    @keyframes ql-ink { from { --ink: -8%; } to { --ink: 114%; } }
+    .practice .legend { max-width: 660px; margin: 0 auto; display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: center; font-size: 13px; color: var(--muted); }
+    .practice .legend b { font-weight: 600; }
+    .practice .worklist { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; max-width: 560px; }
+    .practice .worklist a { text-decoration: none; border: 1px solid var(--line); border-radius: 8px; padding: 6px 10px; display: flex; flex-direction: column; align-items: center; color: var(--ink); }
+    .practice .worklist .ar { font-family: var(--font-quran); font-size: 22px; color: var(--bad); line-height: 1.8; }
+    .practice .worklist small { color: var(--muted); }
+    .practice .out { color: transparent; }
+    .practice .paper.context .out { color: var(--muted); opacity: .35; }
+    .practice .mk { color: var(--marker); }
+    .practice .mk.hidden { color: transparent; }
+    .practice .mk.ink { color: var(--marker); }
+    .practice .mk.out { color: transparent; }
+    .practice .paper.context .mk.out { color: var(--muted); }
+    @media (prefers-reduced-motion: reduce) {
+      .practice .w.ink { animation-duration: 1ms !important; }
+      .practice .paper.turn-in { animation: none; }
+      .practice .progress span { transition: none; }
+    }
+
+
+    .hifz.page { padding-top: 28px; display: flex; flex-direction: column; gap: 16px; }
+    .hifz h1 { margin: 0; font-size: 30px; }
+    .hifz .setup { padding: 18px 20px; display: flex; flex-direction: column; gap: 14px; }
+    .hifz .modes { display: flex; gap: 4px; background: var(--line); padding: 4px; border-radius: 10px; align-self: flex-start; flex-wrap: wrap; }
+    .hifz .modes button { min-height: 44px; padding: 0 16px; border: none; border-radius: 8px; background: transparent; font: inherit; color: var(--ink); cursor: pointer; }
+    .hifz .modes button[aria-selected="true"] { background: var(--surface); font-weight: 600; }
+    .hifz .fields { display: flex; flex-wrap: wrap; gap: 14px 20px; align-items: end; }
+    .hifz .fields .control { flex-direction: column; align-items: flex-start; gap: 4px; }
+    .hifz .group { display: flex; flex-direction: column; gap: 6px; }
+    .hifz .group-title { font-size: 14px; font-weight: 600; }
+    .hifz .radio { display: flex; flex-wrap: wrap; gap: 4px 18px; align-items: center; }
+    .hifz .radio label { display: flex; gap: 8px; align-items: center; min-height: 44px; }
+    .hifz .radio input[type="radio"] { width: 18px; height: 18px; }
+    .hifz .hint-text { font-size: 13px; color: var(--muted); margin: 0; }
+
+    .hifz .exam { display: grid; grid-template-columns: minmax(180px, 240px) minmax(0, 1fr); gap: 20px; align-items: start; }
+    .hifz .examiner { position: sticky; top: 84px; padding: 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+    .hifz .bubble { position: relative; background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; text-align: center; width: 100%; }
+    .hifz .bubble .ar { font-family: var(--font-ar-ui); font-size: 17px; display: block; }
+    .hifz .bubble .en { font-size: 14px; color: var(--muted); display: block; margin-top: 4px; }
+    .hifz .qcount { font-size: 13px; color: var(--muted); }
+    .hifz .dots { display: flex; gap: 6px; flex-wrap: wrap; justify-content: center; }
+    .hifz .dots span { width: 10px; height: 10px; border-radius: 50%; background: var(--line); }
+    .hifz .dots span.now { background: var(--accent); }
+    .hifz .dots span.done { background: var(--accent-strong); opacity: .5; }
+    .hifz .main { display: flex; flex-direction: column; gap: 14px; min-width: 0; }
+    .hifz .toolbar { top: 72px; }
+    .hifz .results { padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+    .hifz .grade { font-size: 28px; font-weight: 700; margin: 0; }
+    .hifz table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    .hifz th, .hifz td { padding: 10px 12px; border-top: 1px solid var(--line); text-align: left; }
+    .hifz thead th { border-top: none; background: var(--bg); }
+    .hifz .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+    @media (max-width: 760px) {
+      .hifz .exam { grid-template-columns: 1fr; }
+      .hifz .examiner { position: static; flex-direction: row; align-items: center; }
+      .hifz .examiner .sheikh { max-width: 110px; flex: none; }
+    }
+  </style>
+
+  <div class="narrow page practice hifz" style="max-width:1120px">
+    <div id="intro" style="display:flex;flex-direction:column;gap:6px">
+      <h1>Hifz test</h1>
+      <p class="muted" style="margin:0">The Sheikh recites a random ayah. You recite from that same ayah and carry on, in order, from memory, until he asks you to stop.</p>
+    </div>
+
+    <form class="card setup" id="setup">
+      <div class="group">
+        <span class="group-title">What should the test cover?</span>
+        <div class="modes" role="tablist" aria-label="Test scope">
+          <button type="button" role="tab" aria-selected="true" data-scope="surahs">From surah to surah</button>
+          <button type="button" role="tab" aria-selected="false" data-scope="ayahs">From ayah to ayah</button>
+        </div>
+      </div>
+      <div class="fields" data-for="surahs">
+        <div class="control">
+          <label class="field-label" for="t-s1">From surah</label>
+          <select class="field" id="t-s1">{meta.surahs.map((s) => <option value={s.n}>{s.n}. {s.en}</option>)}</select>
+        </div>
+        <div class="control">
+          <label class="field-label" for="t-s2">To surah</label>
+          <select class="field" id="t-s2">{meta.surahs.map((s) => <option value={s.n}>{s.n}. {s.en}</option>)}</select>
+        </div>
+      </div>
+      <div class="fields" data-for="ayahs" hidden>
+        <div class="control">
+          <label class="field-label" for="t-s">Surah</label>
+          <select class="field" id="t-s">{meta.surahs.map((s) => <option value={s.n} data-ayahs={s.ayahs}>{s.n}. {s.en}</option>)}</select>
+        </div>
+        <div class="control">
+          <label class="field-label" for="t-a1">From ayah</label>
+          <input class="field" id="t-a1" type="number" min="1" value="1" style="width:90px" />
+        </div>
+        <div class="control">
+          <label class="field-label" for="t-a2">To ayah</label>
+          <input class="field" id="t-a2" type="number" min="1" value="7" style="width:90px" />
+        </div>
+      </div>
+
+      <div class="group">
+        <span class="group-title">How many questions?</span>
+        <div class="radio">
+          <label><input type="radio" name="t-qmode" value="standard" checked /> Standard</label>
+          <label><input type="radio" name="t-qmode" value="custom" /> Choose:</label>
+          <input class="field" id="t-qn" type="number" min="1" max="20" value="3" style="width:80px" aria-label="Number of questions" disabled />
+        </div>
+        <p class="hint-text">Standard: one question for every 2 mushaf pages, at least 1 and at most 10, spread across the whole range.</p>
+      </div>
+
+      <div class="group">
+        <span class="group-title">When should the Sheikh stop you?</span>
+        <div class="radio">
+          <label><input type="radio" name="t-smode" value="standard" checked /> Standard</label>
+          <label><input type="radio" name="t-smode" value="custom" /> After</label>
+          <input class="field" id="t-sn" type="number" min="1" max="30" value="3" style="width:80px" aria-label="Ayahs per question" disabled />
+          <span>ayahs</span>
+        </div>
+        <p class="hint-text">Standard: after 5 ayahs or about half a page, whichever comes first, always at the end of an ayah.</p>
+      </div>
+
+      <div class="group">
+        <span class="group-title">What should the Sheikh recite to start each question?</span>
+        <div class="radio">
+          <label><input type="radio" name="t-open" value="standard" checked /> Standard: the opening words of the ayah</label>
+          <label><input type="radio" name="t-open" value="whole" /> The whole ayah</label>
+        </div>
+        <p class="hint-text">Standard: the first third of the ayah, between 1 and 6 words, as an examiner does in a hifz test. Very short ayahs are recited in full.</p>
+      </div>
+
+      <div class="fields">
+        <div class="control">
+          <label class="field-label" for="t-reciter">Sheikh’s voice</label>
+          <select class="field" id="t-reciter">{cfg.reciters.map((r) => <option value={r.id}>{r.name}</option>)}</select>
+        </div>
+        <div class="control">
+          <label class="field-label" for="t-strict">Checking</label>
+          <select class="field" id="t-strict">
+            <option value="strict">Strict</option>
+            <option value="normal" selected>Normal</option>
+            <option value="lenient">Lenient</option>
+          </select>
+        </div>
+        <button class="btn btn-primary" type="submit">Start test</button>
+      </div>
+      <div class="radio">
+        <label><input type="checkbox" id="t-speak" checked style="width:18px;height:18px" /> The Sheikh speaks his instructions aloud, such as «اقرأ» and «حسبك»</label>
+      </div>
+      <p class="hint-text">The Quran itself is always recited by the voice you chose. Short instructions use your device’s Arabic voice, if it has one; otherwise they are shown only in the speech bubble.</p>
+      <p class="hint-text" id="t-err" role="alert" style="color:#B3261E"></p>
+    </form>
+
+    <div class="card unsupported" id="unsupported" hidden>
+      <b>The Hifz test needs speech checking.</b>
+      <p style="margin:6px 0 0">Open this page in Chrome, Edge or Safari, and allow the microphone.</p>
+    </div>
+
+    <div class="exam" id="exam" hidden>
+      <aside class="card examiner" aria-label="Examiner">
+        <Sheikh />
+        <div style="display:flex;flex-direction:column;gap:10px;align-items:center;width:100%">
+          <div class="bubble" aria-live="polite"><span class="ar" id="say-ar" lang="ar" dir="rtl"></span><span class="en" id="say-en"></span></div>
+          <span class="qcount" id="qcount"></span>
+          <div class="dots" id="dots" aria-hidden="true"></div>
+        </div>
+      </aside>
+
+      <div class="main">
+        <div class="card toolbar">
+          <div class="tool-row">
+            <button class="btn" type="button" id="repeat">Hear the ayah again</button>
+            <button class="btn" type="button" id="help">Show next word</button>
+            <button class="btn" type="button" id="skip">Skip question</button>
+            <button class="btn btn-primary" type="button" id="next" hidden>Next question</button>
+            <button class="btn" type="button" id="end">End test</button>
+          </div>
+          <p class="status" id="status" aria-live="polite"></p>
+          <div class="where" id="where"></div>
+        </div>
+        <div class="stage" id="stage"></div>
+        <div class="legend">
+          <span><b style="color:var(--good)">Green</b> as you read it right</span>
+          <span><b style="color:var(--bad)">Red</b> took more than one try, or the Sheikh prompted you</span>
+          <span><b style="color:var(--marker)">Amber</b> shown as help</span>
+      <span><b>Dotted</b> not heard clearly; worth checking</span>
+          <span><b style="background:var(--replay);padding:0 4px;border-radius:3px;color:var(--ink)">Highlight</b> words you went back over</span>
+        </div>
+        <p class="note">Your browser turns speech into text using its own speech service (Google in Chrome and Edge, Apple in Safari). This site does not record or store audio.</p>
+      </div>
+    </div>
+
+    <section class="card results" id="results" hidden aria-live="polite">
+      <h2 style="margin:0;font-size:24px">Test results</h2>
+      <p class="grade" id="grade"></p>
+      <p class="muted" id="grade-note" style="margin:0"></p>
+      <div class="tbl"><table>
+        <thead><tr><th scope="col">Question</th><th scope="col">Started at</th><th scope="col">Words</th><th scope="col">Right first time</th><th scope="col">Prompts</th><th scope="col">Shown</th><th scope="col">Result</th></tr></thead>
+        <tbody id="rows"></tbody>
+      </table></div>
+      <div id="work" hidden style="display:flex;flex-direction:column;gap:8px;align-items:center">
+        <b>Words to work on</b>
+        <div class="worklist" id="worklist"></div>
+      </div>
+      <p class="hint-text">Grades: Excellent 95% and above with no prompts; Very good 85% and above; Good 70% and above; below that, revise and try again. Each prompt from the Sheikh counts as a word not known.</p>
+      <div class="tool-row">
+        <button class="btn btn-primary" type="button" id="again">Take another test</button>
+        <button class="btn" type="button" id="change">Change test settings</button>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    import cfg from '../../../site.config.mjs';
+    import { getJson, pad, settings, store, audioUrl } from '../../lib/client.mjs';
+    import { tokenize, normalize, matchAt, THRESHOLDS } from '../../lib/recite.mjs';
+    import { createFollower } from '../../lib/follow.mjs';
+    import { u } from '../../lib/url.mjs';
+    import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
+
+    const $ = (id) => document.getElementById(id);
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const AR = '٠١٢٣٤٥٦٧٨٩';
+    const arNum = (n) => String(n).replace(/\d/g, (d) => AR[d]);
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    const threshold = () => THRESHOLDS[$('t-strict').value] ?? THRESHOLDS.normal;
+    const SILENCE_MS = 6000;
+    const STANDARD_WORDS = 60;   // roughly half a mushaf page
+
+    let meta;
+    let scope = 'surahs';
+    let scopeAyahs = [];   // [{ s, sura, ay }] in mushaf order
+    let questions = [];    // [{ start: index in scopeAyahs, items, flat, stats }]
+    let qi = -1;
+    let phase = 'idle';    // idle | sheikh | answer | stopped | done
+    let items = [], flat = [], pos = 0, shownPage = 0, wrongStreak = 0;
+    let q = null;
+
+    // ── setup ──────────────────────────────────────────────────
+    document.querySelectorAll('[data-scope]').forEach((b) => b.addEventListener('click', () => setScope(b.dataset.scope)));
+    function setScope(sc) {
+      scope = sc;
+      document.querySelectorAll('[data-scope]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.scope === sc)));
+      document.querySelectorAll('[data-for]').forEach((f) => (f.hidden = f.dataset.for !== sc));
+    }
+    const tS = $('t-s');
+    function syncAyahs() {
+      const max = Number(tS.selectedOptions[0].dataset.ayahs);
+      $('t-a1').max = $('t-a2').max = String(max);
+      $('t-a1').value = '1'; $('t-a2').value = String(max);
+    }
+    tS.addEventListener('change', syncAyahs);
+    document.querySelectorAll('input[name="t-qmode"]').forEach((r) => r.addEventListener('change', () => ($('t-qn').disabled = r.value !== 'custom' || !r.checked)));
+    document.querySelectorAll('input[name="t-smode"]').forEach((r) => r.addEventListener('change', () => ($('t-sn').disabled = r.value !== 'custom' || !r.checked)));
+    $('t-s1').value = '78'; $('t-s2').value = '114';
+    tS.value = '67'; syncAyahs();
+    const saved = store.get('hifz', null);
+    if (saved) {
+      setScope(saved.scope);
+      if (saved.s1) { $('t-s1').value = String(saved.s1); $('t-s2').value = String(saved.s2); }
+      if (saved.s) { tS.value = String(saved.s); syncAyahs(); $('t-a1').value = String(saved.a1); $('t-a2').value = String(saved.a2); }
+    }
+    $('t-reciter').value = settings.reciter;
+    if (!SR) $('unsupported').hidden = false;
+
+    const radio = (name) => document.querySelector(`input[name="${name}"]:checked`).value;
+
+    $('setup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      $('t-err').textContent = '';
+      if (!SR) { $('t-err').textContent = 'This browser cannot check speech. Open the page in Chrome, Edge or Safari.'; return; }
+      meta ??= await getJson('meta.json');
+      settings.reciter = $('t-reciter').value;
+      scopeAyahs = [];
+      if (scope === 'surahs') {
+        let s1 = Number($('t-s1').value), s2 = Number($('t-s2').value);
+        if (s2 < s1) [s1, s2] = [s2, s1];
+        for (let s = s1; s <= s2; s++) {
+          const sura = await getJson(`surah/${pad(s)}.json`);
+          for (const ay of sura.ayahs) scopeAyahs.push({ s, sura, ay });
+        }
+        store.set('hifz', { scope, s1, s2 });
+      } else {
+        const s = Number(tS.value);
+        const sura = await getJson(`surah/${pad(s)}.json`);
+        let a1 = Math.max(1, parseInt($('t-a1').value, 10) || 1);
+        let a2 = Math.min(sura.ayahs.length, parseInt($('t-a2').value, 10) || sura.ayahs.length);
+        if (a2 < a1) [a1, a2] = [a2, a1];
+        for (const ay of sura.ayahs) if (ay.a >= a1 && ay.a <= a2) scopeAyahs.push({ s, sura, ay });
+        store.set('hifz', { scope, s, a1, a2 });
+      }
+      if (!scopeAyahs.length) { $('t-err').textContent = 'There are no ayahs in that range.'; return; }
+
+      // how many questions
+      const pages = new Set(scopeAyahs.map((x) => x.ay.page)).size;
+      let n = radio('t-qmode') === 'custom'
+        ? Math.min(20, Math.max(1, parseInt($('t-qn').value, 10) || 1))
+        : Math.min(10, Math.max(1, Math.round(pages / 2)));
+      // Questions never overlap: each answer stays inside its own slice of the range,
+      // so the Sheikh never ends up walking you through the whole surah.
+      const span = radio('t-smode') === 'custom' ? Math.max(1, parseInt($('t-sn').value, 10) || 1) : 5;
+      n = Math.max(1, Math.min(n, Math.floor(scopeAyahs.length / span) || 1));
+
+      // spread questions across the range: one random ayah from each equal slice, then shuffle
+      const starts = [];
+      for (let k = 0; k < n; k++) {
+        const lo = Math.floor((k * scopeAyahs.length) / n);
+        const hi = Math.max(lo, Math.floor(((k + 1) * scopeAyahs.length) / n) - 1);
+        const last = Math.max(lo, hi - span + 1);
+        starts.push(lo + Math.floor(Math.random() * (last - lo + 1)));
+      }
+      questions = starts.map((start, k) => ({ start, end: Math.max(start, Math.floor(((k + 1) * scopeAyahs.length) / n) - 1) }));
+      for (let k = questions.length - 1; k > 0; k--) { const j = Math.floor(Math.random() * (k + 1)); [questions[k], questions[j]] = [questions[j], questions[k]]; }
+      qi = -1;
+
+      $('setup').hidden = true; $('intro').hidden = true; $('results').hidden = true;
+      $('exam').hidden = false;
+      renderDots();
+      window.scrollTo({ top: 0, behavior: reduceMotion ? 'auto' : 'smooth' });
+      nextQuestion();
+    });
+
+    // ── building one question ──────────────────────────────────
+    function makeItem(s, sura, ay, isBism) {
+      const it = isBism
+        ? { s, a: 0, key: `${s}:0`, label: `${sura.en}, Bismillah`, ar: sura.bismillah, page: ay.page }
+        : { s, a: ay.a, key: `${s}:${ay.a}`, label: `${sura.en} ${s}:${ay.a}`, ar: ay.ar, page: ay.page };
+      it.words = tokenize(it.ar, it.a ? it.key : null);
+      it.words.forEach((w, i) => Object.assign(w, { item: it, wi: i, state: 'hidden', page: it.page, mistake: false }));
+      return it;
+    }
+    function buildQuestion(qn) {
+      const custom = radio('t-smode') === 'custom' ? Math.max(1, parseInt($('t-sn').value, 10) || 1) : null;
+      const out = [];
+      let ayahs = 0, words = 0;
+      for (let k = qn.start; k < scopeAyahs.length && k <= qn.end; k++) {
+        const { s, sura, ay } = scopeAyahs[k];
+        if (k > qn.start && ay.a === 1 && sura.bismillah && s !== 1) out.push(makeItem(s, sura, ay, true));
+        const it = makeItem(s, sura, ay, false);
+        out.push(it);
+        ayahs++; words += it.words.length;
+        if (custom ? ayahs >= custom : ayahs >= 5 || words >= STANDARD_WORDS) break;
+      }
+      return out;
+    }
+
+    function renderDots() {
+      const d = $('dots');
+      d.replaceChildren(...questions.map((_, i) => el('span', i < qi ? 'done' : i === qi ? 'now' : '')));
+      $('qcount').textContent = qi >= 0 ? `Question ${qi + 1} of ${questions.length}` : '';
+    }
+
+    function sheikh(state, ar, en) {
+      $('sheikh').dataset.state = state;
+      if (ar !== undefined) $('say-ar').textContent = ar;
+      if (en !== undefined) $('say-en').textContent = en;
+    }
+    function status(text, kind = '') {
+      const st = $('status');
+      st.textContent = text;
+      st.className = 'status' + (kind ? ' ' + kind : '');
+    }
+
+    async function nextQuestion() {
+      stopListening();
+      clearSilence();
+      qi++;
+      if (qi >= questions.length) return finishTest();
+      q = questions[qi];
+      q.items = buildQuestion(q);
+      q.stats = { words: 0, first: 0, prompts: 0, help: 0, skipped: false };
+      items = q.items; flat = items.flatMap((it) => it.words);
+      q.flat = flat;
+      pos = 0; wrongStreak = 0; queue.length = 0; follower.clearBack();
+      renderDots();
+      $('next').hidden = true;
+      ['repeat', 'help', 'skip'].forEach((id) => ($(id).disabled = false));
+      await renderPage(flat[0].page, qi > 0);
+      $('where').textContent = '';
+      await sheikhRecites();
+    }
+
+    // Short spoken instructions (never the Quran itself) use the device's Arabic voice, if any.
+    let arVoice = null;
+    function pickVoice() { arVoice = (window.speechSynthesis?.getVoices() ?? []).find((v) => /^ar([-_]|$)/i.test(v.lang)) ?? null; }
+    if ('speechSynthesis' in window) { pickVoice(); speechSynthesis.addEventListener?.('voiceschanged', pickVoice); }
+    function speakAr(text) {
+      return new Promise((resolve) => {
+        if (!arVoice || !$('t-speak').checked) return resolve(false);
+        const ut = new SpeechSynthesisUtterance(text);
+        ut.voice = arVoice; ut.lang = arVoice.lang; ut.rate = 0.9;
+        let done = false;
+        const finish = (ok) => { if (!done) { done = true; resolve(ok); } };
+        ut.onend = () => finish(true);
+        ut.onerror = () => finish(false);
+        speechSynthesis.cancel();
+        speechSynthesis.speak(ut);
+        setTimeout(() => finish(true), 4000);
+      });
+    }
+
+    // How much of the ayah the Sheikh recites: its opening words, like an examiner.
+    function openingWords(it) {
+      const n = it.words.length;
+      if (radio('t-open') === 'whole' || n <= 2) return n;
+      return Math.min(6, n - 1, Math.max(1, Math.ceil(n / 3)));
+    }
+    // Rough share of the recitation those words take, by letters (long vowels take longer).
+    function openingShare(it, k) {
+      const len = (w) => w.plain.length + 1;
+      const part = it.words.slice(0, k).reduce((t, w) => t + len(w), 0);
+      return part / it.words.reduce((t, w) => t + len(w), 0);
+    }
+
+    // The Sheikh recites the starting ayah only, then it is the reader's turn.
+    const voice = new Audio();
+    async function sheikhRecites(again) {
+      phase = 'sheikh';
+      stopListening();
+      const first = items[0];
+      if (!again) {
+        sheikh('speaking', 'اقرأ من قوله تعالى', 'Recite from where Allah says:');
+        status('The Sheikh is about to recite an ayah. Listen, then start from that same ayah.');
+        await speakAr('اقرأ من قوله تعالى');
+      }
+      const k = openingWords(first);
+      sheikh('speaking', 'اقرأ من قوله تعالى…', k < first.words.length ? 'Listen to the opening of the ayah.' : 'Listen to the ayah.');
+      const ok = await playAudio(audioUrl(settings.reciter, first.s, first.a), k < first.words.length ? openingShare(first, k) : 1);
+      if (phase === 'done') return;
+      if (!ok) {
+        // if the audio fails, the Sheikh shows the opening words instead
+        sheikh('listening', first.words.slice(0, k).map((w) => w.display).join(' ') + ' …', 'The recitation could not be played, so here are the opening words.');
+        status('The recitation could not be played. Check your connection, or try another voice.', 'bad');
+      }
+      if (ok) sheikh('listening', 'تفضّل، اقرأ', 'Go ahead. Recite that ayah from its start and carry on.');
+      if (ok) status('Your turn. Start from the beginning of the ayah you just heard.');
+      phase = 'answer';
+      updateCurrent();
+      startListening();
+      armSilence();
+    }
+    // Play a recitation. With share < 1, stop softly after that part of it (the opening words).
+    const LEAD = 0.3, TAIL = 0.3;   // typical silence at the start and end of each ayah file, in seconds
+    function playAudio(src, share = 1) {
+      return new Promise((resolve) => {
+        let stopAt = null, fading = false, finished = false;
+        const timer = setInterval(() => {
+          if (share >= 1 || stopAt === null || fading) return;
+          if (voice.currentTime >= stopAt) {
+            fading = true;
+            let v = 1;
+            const fade = setInterval(() => {
+              v -= 0.12;
+              try { voice.volume = Math.max(0, v); } catch {}
+              if (v <= 0) { clearInterval(fade); end(true); }
+            }, 35);
+          }
+        }, 40);
+        function end(ok) {
+          if (finished) return;
+          finished = true;
+          clearInterval(timer);
+          voice.pause();
+          try { voice.volume = 1; } catch {}
+          resolve(ok);
+        }
+        voice.loop = false;
+        voice.onloadedmetadata = () => {
+          const d = voice.duration;
+          if (Number.isFinite(d) && d > 0) stopAt = Math.min(d, LEAD + Math.max(0, d - LEAD - TAIL) * share + 0.25);
+        };
+        voice.onended = () => end(true);
+        voice.onerror = () => end(false);
+        try { voice.volume = 1; } catch {}
+        voice.src = src;
+        voice.play().catch(() => end(false));
+      });
+    }
+
+    $('repeat').addEventListener('click', async () => {
+      if (phase !== 'answer') return;
+      clearSilence();
+      await sheikhRecites(true);
+    });
+    $('skip').addEventListener('click', () => {
+      if (!q || phase === 'done') return;
+      q.stats.skipped = true;
+      nextQuestion();
+    });
+    $('next').addEventListener('click', () => nextQuestion());
+    $('end').addEventListener('click', () => finishTest());
+    $('help').addEventListener('click', () => { if (phase === 'answer' && pos < flat.length) accept(1, 'help'); });
+
+    // ── the mushaf page ────────────────────────────────────────
+    async function ayahsOfPage(p) {
+      const start = meta.pages[p - 1];
+      const out = [];
+      for (let s = start.s; s <= 114; s++) {
+        const sura = await getJson(`surah/${pad(s)}.json`);
+        for (const ay of sura.ayahs) {
+          if (s === start.s && ay.a < start.a) continue;
+          if (ay.page > p) return out;
+          if (ay.page === p) out.push({ s, sura, ay });
+        }
+      }
+      return out;
+    }
+    function wordSpan(w) {
+      const cls = w.state === 'shown' ? 'w' : w.state === 'skipped' ? 'w out' : 'w hidden';
+      const sp = el('span', cls, w.display);
+      if (w.state === 'shown') { if (w.helped) sp.classList.add('helped'); else if (w.mistake) sp.classList.add('weak'); else if (w.unclear) sp.classList.add('unclear'); }
+      else if (w.mistake) sp.classList.add('missed');
+      w.el = sp;
+      return sp;
+    }
+
+    function markerSpan(it, a) {
+      const mk = el('span', 'mk w' + (it.done ? '' : ' hidden'), `﴿${arNum(a)}﴾`);
+      it.mk = mk;
+      return mk;
+    }
+
+    // Lay the page out line by line, exactly as in the printed mushaf (QUL layout).
+    async function renderPage(p, animate) {
+      const map = new Map(items.map((it) => [it.key, it]));
+      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan });
+      await swapPaper(paper, animate);
+      shownPage = p;
+    }
+
+    // ── writing words ──────────────────────────────────────────
+    const queue = [];
+    let running = false, lastInkEnd = 0;
+    function enqueue(fn) { queue.push(fn); if (!running) drain(); }
+    async function drain() {
+      running = true;
+      while (queue.length) await queue.shift()();
+      running = false;
+      updateCurrent();
+      if (phase === 'answer' && pos >= flat.length) sheikhStops();
+    }
+    function timing(w) {
+      const letters = Math.max(1, w.plain.length);
+      const backlog = queue.length;
+      // quick enough to keep pace with normal recitation, quicker still when speech runs ahead
+      const dur = backlog > 2 ? 110 : Math.min(240, Math.max(130, letters * 22));
+      const gap = backlog > 2 ? 12 : Math.min(60, Math.max(25, letters * 8));
+      return { dur, gap };
+    }
+    function revealStep(w) {
+      return async () => {
+        if (w.page !== shownPage) {
+          await wait(Math.max(0, lastInkEnd - Date.now()) + (reduceMotion ? 0 : 150));
+          await renderPage(w.page, true);
+        }
+        const sp = w.el;
+        if (!sp) return;
+        const { dur, gap } = reduceMotion ? { dur: 1, gap: 0 } : timing(w);
+        sp.classList.remove('hidden', 'hint', 'current', 'wrong', 'missed');
+        sp.classList.add(w.helped ? 'helped' : w.mistake ? 'weak' : 'fresh');
+        if (w.unclear && !w.mistake && !w.helped) sp.classList.add('unclear');
+        sp.style.setProperty('--dur', `${dur}ms`);
+        sp.classList.add('ink');
+        follow(sp);
+        w.state = 'shown';
+        lastInkEnd = Date.now() + dur;
+        setTimeout(() => { sp.classList.remove('ink'); sp.style.removeProperty('--dur'); }, dur + 20);
+        setTimeout(() => { sp.classList.remove('fresh'); if (w.helped) sp.classList.add('helped'); else if (w.mistake) sp.classList.add('weak'); }, dur + 650);
+        if (w.wi === w.item.words.length - 1) {
+          const it = w.item;
+          it.done = true;
+          setTimeout(() => it.mk?.classList.remove('hidden'), dur * 0.6);
+        }
+        await wait(gap);
+      };
+    }
+    // Smoothly change pages: the finished page slides away and the next one slides in from the left.
+    async function swapPaper(paper, animate) {
+      const stage = $('stage');
+      const old = stage.querySelector('.paper');
+      if (!animate || !old || reduceMotion) { stage.replaceChildren(paper); await fitPaper(paper); return; }
+      const box = old.getBoundingClientRect();
+      stage.style.position = 'relative';
+      stage.style.minHeight = old.offsetHeight + 'px';
+      Object.assign(old.style, { position: 'absolute', top: '0', left: '50%', width: box.width + 'px', margin: '0' });
+      paper.style.opacity = '0';
+      stage.append(paper);
+      await fitPaper(paper);
+      paper.style.opacity = '';
+      const opts = { duration: 420, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' };
+      old.animate([{ opacity: 1, transform: 'translateX(-50%)' }, { opacity: 0, transform: 'translateX(calc(-50% + 70px))' }], opts);
+      await paper.animate([{ opacity: 0, transform: 'translateX(-70px)' }, { opacity: 1, transform: 'none' }], opts).finished.catch(() => {});
+      old.remove();
+      stage.style.minHeight = '';
+      const bar = document.querySelector('.practice .toolbar');
+      const barBottom = bar ? bar.getBoundingClientRect().bottom : 80;
+      const top = paper.getBoundingClientRect().top;
+      if (top < barBottom || top > innerHeight * 0.45) window.scrollBy({ top: top - barBottom - 12, behavior: 'smooth' });
+    }
+
+    let fitT;
+    addEventListener('resize', () => { clearTimeout(fitT); fitT = setTimeout(() => fitPaper($('stage').querySelector('.paper')), 150); });
+
+    // Keep the line being recited in view.
+    let lastFollow = 0;
+    function follow(node) {
+      if (!node) return;
+      const now = Date.now();
+      if (now - lastFollow < 250) return;
+      const r = node.getBoundingClientRect();
+      const bar = document.querySelector('.practice .toolbar');
+      const topLimit = (bar ? bar.getBoundingClientRect().bottom : 80) + 24;
+      const bottomLimit = innerHeight - 120;
+      if (r.top < topLimit || r.bottom > bottomLimit) {
+        lastFollow = now;
+        window.scrollBy({ top: r.top - (topLimit + (bottomLimit - topLimit) * 0.35), behavior: reduceMotion ? 'auto' : 'smooth' });
+      }
+    }
+
+    // Did another of the speech engine's guesses hear the right word?
+
+    function updateCurrent() {
+      document.querySelectorAll('.hifz .w.current').forEach((x) => x.classList.remove('current'));
+      const w = flat[pos];
+      if (!w || phase !== 'answer') return;
+      if (w.page === shownPage) { w.el?.classList.add('current'); follow(w.el); }
+      $('where').textContent = `${w.item.label}, word ${w.wi + 1} of ${w.item.words.length}`;
+    }
+
+    // kind: undefined (read correctly) | 'help' (Show next word) | 'prompt' (Sheikh said it)
+    function accept(count, kind) {
+      for (let k = 0; k < count && pos < flat.length; k++) {
+        const w = flat[pos];
+        w.state = 'queued';
+        if (kind === 'help') { w.helped = true; q.stats.help++; }
+        else if (kind === 'prompt') { w.mistake = true; }
+        else if (kind === 'unclear') { w.unclear = true; if ($('t-strict').value === 'strict') w.mistake = true; else if (!w.mistake) q.stats.first++; }
+        else if (!w.mistake) q.stats.first++;
+        q.stats.words++;
+        pos++;
+        enqueue(revealStep(w));
+      }
+      wrongStreak = 0;
+      if (kind !== 'prompt') status(kind === 'help' ? 'Shown. Carry on.' : 'Correct. Keep going.', 'good');
+      if ((!kind || kind === 'unclear') && phase === 'answer' && $('sheikh').dataset.state === 'listening') sheikh('listening', 'تفضّل', 'Carry on.');
+      updateCurrent();
+      armSilence();
+    }
+    function reject(heard) {
+      const w = flat[pos];
+      if (!w) return;
+      w.mistake = true;
+      wrongStreak++;
+      if (w.el) { w.el.classList.add('current', 'wrong', 'missed'); setTimeout(() => w.el?.classList.remove('wrong'), 800); }
+      status(`Heard “${heard}”. That is not the next word.`, 'bad');
+      if (wrongStreak === 1) sheikh('listening', 'انتبه', 'Take care, that is not right.');
+      else if (wrongStreak === 2) sheikh('listening', 'أعد', 'Try that word again.');
+      if (wrongStreak >= 3) sheikhPrompts();
+    }
+
+    // ── the Sheikh helps when you are stuck, then stops you ────
+    let silenceTimer = null;
+    function clearSilence() { clearTimeout(silenceTimer); silenceTimer = null; }
+    function armSilence() {
+      clearSilence();
+      if (phase !== 'answer') return;
+      silenceTimer = setTimeout(() => { if (phase === 'answer' && !running) sheikhPrompts(); else armSilence(); }, SILENCE_MS);
+    }
+    async function sheikhPrompts() {
+      if (phase !== 'answer' || pos >= flat.length) return;
+      clearSilence();
+      const w = flat[pos];
+      q.stats.prompts++;
+      phase = 'sheikh';
+      stopListening();
+      sheikh('prompt', w.display, 'The Sheikh gives you the next word.');
+      status('The Sheikh is prompting you with the next word.');
+      // word audio from Quran.com, numbered by word within the ayah
+      const ok = w.item.a ? await playAudio(`https://audio.qurancdn.com/wbw/${pad(w.item.s)}_${pad(w.item.a)}_${pad(w.wi + 1)}.mp3`) : false;
+      if (!ok) await wait(1200);
+      accept(1, 'prompt');
+      phase = 'answer';
+      sheikh('listening', 'تابع', 'Carry on from there.');
+      status('Carry on from there.');
+      startListening();
+      armSilence();
+    }
+    async function sheikhStops() {
+      phase = 'stopped';
+      clearSilence();
+      stopListening();
+      const st = q.stats;
+      const ratio = st.words ? st.first / st.words : 0;
+      let ar, en;
+      if (ratio === 1 && st.prompts === 0 && st.help === 0) { ar = 'حسبك، أحسنت، بارك الله فيك'; en = 'That is enough. Excellent, may Allah bless you.'; }
+      else if (ratio >= 0.85) { ar = 'حسبك، بارك الله فيك'; en = 'That is enough. May Allah bless you.'; }
+      else { ar = 'حسبك. راجع هذا الموضع'; en = 'That is enough. Revise this passage.'; }
+      sheikh('stop', ar, en);
+      status('Question complete.', 'good');
+      ['repeat', 'help', 'skip'].forEach((id) => ($(id).disabled = true));
+      chime();
+      await speakAr(ar);
+      if (qi + 1 < questions.length) {
+        $('next').hidden = false;
+        await wait(2500);
+        if (phase === 'stopped' && questions[qi] === q) nextQuestion();
+      } else {
+        await wait(1500);
+        if (phase === 'stopped') {
+          sheikh('stop', 'انتهى الاختبار، جزاك الله خيرا', 'The test is over. May Allah reward you.');
+          await speakAr('انتهى الاختبار، جزاك الله خيرا');
+          if (phase === 'stopped') finishTest();
+        }
+      }
+    }
+    function chime() {
+      try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const o = ctx.createOscillator(), g = ctx.createGain();
+        o.type = 'sine'; o.frequency.value = 660;
+        g.gain.setValueAtTime(0.0001, ctx.currentTime);
+        g.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.02);
+        g.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + 0.6);
+        o.connect(g).connect(ctx.destination); o.start(); o.stop(ctx.currentTime + 0.65);
+      } catch {}
+    }
+
+    // ── results ────────────────────────────────────────────────
+    function gradeOf(st) {
+      if (st.skipped) return 'Skipped';
+      if (st.ended) return 'Ended early';
+      if (!st.words) return '—';
+      const known = Math.max(0, st.first - 0) / st.words;
+      if (known >= 0.95 && st.prompts === 0 && st.help === 0) return 'Excellent';
+      if (known >= 0.85) return 'Very good';
+      if (known >= 0.70) return 'Good';
+      return 'Needs revision';
+    }
+    function finishTest() {
+      phase = 'done';
+      clearSilence(); stopListening(); voice.pause(); try { speechSynthesis.cancel(); } catch {}
+      if (q && !q.stats) q.stats = { words: 0, first: 0, prompts: 0, help: 0, skipped: true };
+      if (q?.stats && q.flat && pos < q.flat.length && !q.stats.skipped) q.stats.ended = true;
+      $('exam').hidden = true;
+      $('results').hidden = false;
+      const asked = questions.filter((x) => x.stats);
+      const rows = $('rows');
+      rows.replaceChildren();
+      let words = 0, first = 0, prompts = 0, help = 0;
+      asked.forEach((x, i) => {
+        const st = x.stats;
+        words += st.words; first += st.first; prompts += st.prompts; help += st.help;
+        const tr = el('tr');
+        const startIt = x.items[0];
+        [String(i + 1), startIt.label, String(st.words), st.words ? `${Math.round((st.first / st.words) * 100)}%` : '—', String(st.prompts), String(st.help), gradeOf(st)]
+          .forEach((v) => tr.append(el('td', null, v)));
+        rows.append(tr);
+      });
+      const overall = gradeOf({ words, first, prompts, help });
+      $('grade').textContent = words ? overall : 'No answers recorded';
+      $('grade-note').textContent = words ? `${first} of ${words} words right first time across ${asked.length} question${asked.length === 1 ? '' : 's'}, with ${prompts} prompt${prompts === 1 ? '' : 's'}.` : 'Start a test and recite after the Sheikh to get a result.';
+      const weak = asked.flatMap((x) => x.flat.filter((w) => w.state === 'shown' && (w.mistake || w.helped)));
+      const list = $('worklist');
+      list.replaceChildren();
+      for (const w of weak.slice(0, 50)) {
+        const a = el('a');
+        a.href = u(`ayah/?k=${w.item.s}:${w.item.a || 1}`);
+        a.append(el('span', 'ar', w.display), el('small', null, w.item.a ? `${w.item.s}:${w.item.a}` : 'Bismillah'));
+        list.append(a);
+      }
+      $('work').hidden = weak.length === 0;
+      $('results').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+    }
+    $('again').addEventListener('click', () => $('setup').requestSubmit());
+    $('change').addEventListener('click', () => { $('results').hidden = true; $('setup').hidden = false; $('intro').hidden = false; });
+
+    // ── listening ──────────────────────────────────────────────
+    let rec = null, listening = false;
+    const wordsOf = (res) => normalize(res[0].transcript).split(' ').filter(Boolean);
+    function markReplay(idx) { const w = flat[idx]; if (w?.el && w.page === shownPage) w.el.classList.add('replay'); }
+    function endReplay() { setTimeout(() => document.querySelectorAll('.hifz .w.replay').forEach((x) => x.classList.remove('replay')), 900); }
+    const follower = createFollower({
+      getFlat: () => flat,
+      getPos: () => pos,
+      threshold,
+      accept: (n, kind) => accept(n, kind),
+      wrong: (heard) => reject(heard),
+      replay: (idx) => { markReplay(idx); status('Going back over it…', 'good'); },
+      endReplay,
+      // the Bismillah between surahs is optional
+      skipOptional: (spoken, i, th) => {
+        const w = flat[pos];
+        if (!w || w.item.a !== 0 || w.wi !== 0) return null;
+        const after = pos + w.item.words.length;
+        if (!flat[after] || !matchAt(spoken, i, flat, after, th).n) return null;
+        w.item.words.forEach((x) => { x.state = 'skipped'; if (x.el) x.el.className = 'w out'; });
+        pos = after;
+        return pos;
+      },
+    });
+
+    function processResults(results, from) {
+      if (phase !== 'answer') return;
+      armSilence();
+      follower.handle(results, from);
+    }
+    function startListening() {
+      if (!SR || listening) return;
+      rec = new SR();
+      rec.lang = 'ar-SA';
+      rec.continuous = true;
+      rec.interimResults = true;
+      rec.maxAlternatives = 3;
+      follower.reset();
+      const me = rec;
+      rec.onresult = (e) => { if (me === rec) processResults(e.results, e.resultIndex); };
+      rec.onerror = (e) => {
+        if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+          listening = false;
+          status('Microphone access is blocked. Allow the microphone for this site in your browser settings, then start the test again.', 'bad');
+        } else if (e.error === 'network') {
+          status('The speech service could not be reached. Check your internet connection.', 'bad');
+        }
+      };
+      rec.onend = () => { if (listening && me === rec) { follower.reset(); try { rec.start(); } catch {} } };
+      try { rec.start(); listening = true; } catch { status('Could not start the microphone. Reload the page and try again.', 'bad'); }
+    }
+    function stopListening() {
+      listening = false;
+      try { rec?.stop(); } catch {}
+    }
+  </script>
+</Base>

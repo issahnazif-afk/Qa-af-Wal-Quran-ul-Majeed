@@ -1,0 +1,128 @@
+---
+import Base from '../../layouts/Base.astro';
+import cfg from '../../../site.config.mjs';
+import { getMeta, getSurah } from '../../lib/data.mjs';
+import { u } from '../../lib/url.mjs';
+import { qpc } from '../../lib/recite.mjs';
+const meta = getMeta();
+const fatiha = getSurah(1);
+const abs = (p) => new URL(u(p), cfg.site).href;
+---
+<Base title="Resource library" active="resources">
+  <style>
+    .layout { display: flex; flex-wrap: wrap; gap: 32px; padding-top: 32px; align-items: flex-start; }
+    .toc { flex: 1 1 220px; max-width: 260px; display: flex; flex-direction: column; gap: 2px; position: sticky; top: 84px; }
+    .toc a { padding: 12px; border-radius: 8px; text-decoration: none; color: var(--ink); }
+    .toc a:hover { background: var(--accent-soft); }
+    .content { flex: 999 1 560px; min-width: 0; display: flex; flex-direction: column; gap: 24px; }
+    .res { padding: 28px; display: flex; flex-direction: column; gap: 16px; scroll-margin-top: 90px; }
+    .res h2 { margin: 0; font-size: 24px; }
+    .facts { margin: 0; display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+    .facts dt { font-size: 13px; color: var(--muted); }
+    .facts dd { margin: 4px 0 0; font-weight: 600; }
+    .code { background: #15211D; color: #E8EEEA; border-radius: 10px; padding: 16px 18px; font-family: ui-monospace, 'Cascadia Code', Consolas, monospace; font-size: 14px; overflow-x: auto; white-space: pre; }
+    .tbl { overflow-x: auto; border: 1px solid var(--line); border-radius: 10px; }
+    table { width: 100%; border-collapse: collapse; font-size: 15px; }
+    th, td { padding: 10px 14px; text-align: left; border-top: 1px solid var(--line); vertical-align: top; }
+    thead th { border-top: none; background: var(--bg); }
+    .row { display: flex; flex-wrap: wrap; gap: 8px; }
+    @media (max-width: 700px) { .toc { position: static; max-width: none; } }
+  </style>
+
+  <div class="wrap layout">
+    <nav class="toc card" aria-label="Resource categories" style="padding:8px">
+      <a href="#script">Quran script</a>
+      <a href="#translations">Translations</a>
+      <a href="#recitations">Recitations</a>
+      <a href="#morphology">Morphology</a>
+      {meta.wbw && <a href="#wbw">Word by word</a>}
+      <a href="#metadata">Metadata</a>
+      <a href="#planned">Coming next</a>
+    </nav>
+
+    <div class="content">
+      <div>
+        <h1 style="margin:0;font-size:32px">Resource library</h1>
+        <p class="muted" style="margin:8px 0 0;max-width:700px">Every dataset this site uses, with its source, licence and a download. All files are plain JSON served from this site.</p>
+      </div>
+
+      <section class="card res" id="script">
+        <h2>Quran script: Uthmani</h2>
+        <dl class="facts">
+          <div><dt>Ayahs</dt><dd>6,236</dd></div>
+          <div><dt>Source</dt><dd><a href="https://tanzil.net" rel="noopener">Tanzil Project</a>, version 1.1</dd></div>
+          <div><dt>Licence</dt><dd>CC BY 3.0, verbatim only</dd></div>
+        </dl>
+        <div class="tbl"><table>
+          <thead><tr><th scope="col">Ayah</th><th scope="col">Text</th></tr></thead>
+          <tbody>{fatiha.ayahs.slice(0, 3).map((a) => <tr><td>1:{a.a}</td><td class="quran" lang="ar" style="font-size:24px;line-height:1.9">{qpc(a.ar)}</td></tr>)}</tbody>
+        </table></div>
+        <div class="code">{`GET ${abs('data/download/quran-uthmani.json')}\nGET ${abs('data/surah/001.json')}   (one surah, with translations)`}</div>
+        <div class="row"><a class="btn btn-primary" href={u('data/download/quran-uthmani.json')} download>Download JSON</a></div>
+      </section>
+
+      <section class="card res" id="translations">
+        <h2>Translations</h2>
+        <div class="tbl"><table>
+          <thead><tr><th scope="col">Name</th><th scope="col">Language</th><th scope="col">Edition id</th><th scope="col">Download</th></tr></thead>
+          <tbody>
+            {cfg.translations.map((t) => (
+              <tr><td>{t.name}</td><td>{t.lang}</td><td><code>{t.id}</code></td><td><a href={u(`data/download/${t.id}.json`)} download>JSON</a></td></tr>
+            ))}
+          </tbody>
+        </table></div>
+        <p class="muted" style="margin:0">Source: <a href="https://alquran.cloud" rel="noopener">AlQuran.cloud</a>. More editions can be added in <code>site.config.mjs</code>.</p>
+        <div class="code">{`GET https://api.alquran.cloud/v1/surah/1/${cfg.defaultTranslation}`}</div>
+      </section>
+
+      <section class="card res" id="recitations">
+        <h2>Recitations</h2>
+        <div class="tbl"><table>
+          <thead><tr><th scope="col">Reciter</th><th scope="col">Sample, Al-Fatihah 1:1</th></tr></thead>
+          <tbody>
+            {cfg.reciters.map((r) => (
+              <tr><td>{r.name}</td><td><audio controls preload="none" src={`https://everyayah.com/data/${r.id}/001001.mp3`} style="max-width:100%"></audio></td></tr>
+            ))}
+          </tbody>
+        </table></div>
+        <p class="muted" style="margin:0">Audio streams from <a href="https://everyayah.com" rel="noopener">EveryAyah</a>. File pattern: surah and ayah, three digits each.</p>
+        <div class="code">{`https://everyayah.com/data/${cfg.defaultReciter}/002255.mp3   (2:255)`}</div>
+      </section>
+
+      <section class="card res" id="morphology">
+        <h2>Morphology</h2>
+        <dl class="facts">
+          <div><dt>Covers</dt><dd>Every word, split into segments</dd></div>
+          <div><dt>Source</dt><dd><a href="https://corpus.quran.com" rel="noopener">Quranic Arabic Corpus</a> 0.4</dd></div>
+          <div><dt>Licence</dt><dd>GNU GPL</dd></div>
+        </dl>
+        <p style="margin:0">Converted from Buckwalter transliteration to Arabic script for display. The original file is kept unchanged in the repository.</p>
+        <div class="code">{`GET ${abs('data/morph/001.json')}   (one file per surah, 001 to 114)`}</div>
+        <div class="row"><a class="btn" href={u('data/morph/001.json')}>View Al-Fatihah sample</a></div>
+      </section>
+
+      {meta.wbw && (
+        <section class="card res" id="wbw">
+          <h2>Word by word</h2>
+          <p style="margin:0">English meaning and transliteration for each word, from the Quran Foundation API.</p>
+          <div class="code">{`GET ${abs('data/wbw/001.json')}   (one file per surah)`}</div>
+        </section>
+      )}
+
+      <section class="card res" id="metadata">
+        <h2>Metadata</h2>
+        <dl class="facts">
+          <div><dt>Mushaf pages</dt><dd>{meta.pages.length}</dd></div>
+          <div><dt>Juz</dt><dd>{meta.juzs.length}</dd></div>
+          <div><dt>Source</dt><dd><a href="https://alquran.cloud/api" rel="noopener">AlQuran.cloud</a> meta</dd></div>
+        </dl>
+        <div class="row"><a class="btn btn-primary" href={u('data/download/metadata.json')} download>Download JSON</a></div>
+      </section>
+
+      <section class="card res" id="planned">
+        <h2>Coming next</h2>
+        <p style="margin:0">Exact line-by-line mushaf layout and page fonts from <a href="https://qul.tarteel.ai" rel="noopener">QUL</a>, and bundled tafsir. Until then, mushaf pages flow the text of each page, and tafsir links to Quran.com.</p>
+      </section>
+    </div>
+  </div>
+</Base>
