@@ -25,6 +25,15 @@ export default {
   ],
   defaultReciter: 'Alafasy_128kbps',
 
+  // Other riwayat: KFGQPC texts (via the fawazahmed0 Quran API on jsDelivr) shown in KFGQPC riwayah fonts.
+  // Ayahs follow the Hafs (Kufan) numbering so they line up with everything else.
+  riwayat: [
+    { id: 'warsh', name: 'Warsh ʿan Nāfiʿ', edition: 'ara-quranwarsh', font: 'uthmanic-warsh-v21.ttf' },
+    { id: 'qaloon', name: 'Qālūn ʿan Nāfiʿ', edition: 'ara-quranqaloon', font: 'uthmanic-qaloun-v21.ttf' },
+    { id: 'doori', name: 'Ad-Dūrī ʿan Abī ʿAmr', edition: 'ara-qurandoori', font: 'uthmanic-douri-v20.ttf' },
+    { id: 'soosi', name: 'As-Sūsī ʿan Abī ʿAmr', edition: 'ara-quransoosi', font: 'uthmanic-sousi-v20.ttf' },
+  ],
+
   // Optional: word-by-word from Quran Foundation (needs QF_CLIENT_ID / QF_CLIENT_SECRET
   // as GitHub Actions secrets). If they are missing, the build simply skips this step.
   quranFoundation: {

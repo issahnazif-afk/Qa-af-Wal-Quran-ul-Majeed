@@ -296,12 +296,22 @@ const meta = getMeta();
       const it = isBism
         ? { s, a: 0, key: `${s}:0`, label: `${sura.en}, Bismillah`, ar: sura.bismillah, tr: '', page: ay.page }
         : { s, a: ay.a, key: `${s}:${ay.a}`, label: `${sura.en} ${s}:${ay.a}`, ar: ay.ar, tr: trOf(ay), page: ay.page };
-      it.words = tokenize(it.ar, it.a ? it.key : null);
+      const rwId = document.documentElement.dataset.riwayah || 'hafs';
+      const rwText = rwId !== 'hafs' && it.a ? rwCache.get(`${rwId}:${s}`)?.[it.a] : null;
+      if (rwText) it.ar = rwText;
+      it.words = tokenize(it.ar, it.a ? it.key : null, { raw: !!rwText });
       it.words.forEach((w, i) => Object.assign(w, { item: it, wi: i, state: 'hidden', page: it.page, mistake: false }));
       return it;
     }
     // Ayahs of surah s from ayah `from` (optionally to `to`), with its Bismillah if it starts at ayah 1.
+    // other riwayat: their own text is what the reader is checked against
+    const rwCache = new Map();
+    async function loadRiwayah(s) {
+      const rwId = document.documentElement.dataset.riwayah || 'hafs';
+      if (rwId !== 'hafs' && !rwCache.has(`${rwId}:${s}`)) rwCache.set(`${rwId}:${s}`, await getJson(`riwayah/${rwId}/${pad(s)}.json`).catch(() => null));
+    }
     async function surahItems(s, from = 1, to = Infinity, withBism = $('p-bism').checked) {
+      await loadRiwayah(s);
       const sura = await getJson(`surah/${pad(s)}.json`);
       const out = [];
       for (const ay of sura.ayahs) {
@@ -444,7 +454,7 @@ const meta = getMeta();
     // Lay the page out line by line, exactly as in the printed mushaf (QUL layout).
     async function renderPage(p, animate) {
       const map = new Map(items.map((it) => [it.key, it]));
-      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan, script: document.documentElement.dataset.script || 'plain' });
+      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan, script: document.documentElement.dataset.script || 'plain', riwayah: document.documentElement.dataset.riwayah || 'hafs' });
       paper.classList.toggle('outlines', $('p-outline').checked);
       paper.classList.toggle('context', $('p-context').checked);
       await swapPaper(paper, animate);
@@ -699,6 +709,8 @@ const meta = getMeta();
       });
       $('back-place').addEventListener('click', async () => { const p = homePage(); if (p) { await renderPage(p, true); updateCurrent(); } syncBack(); });
       document.addEventListener('ql:script', async () => { if (flat.length && shownPage) { await renderPage(shownPage, false); updateCurrent(); } });
+      // a different riwayah means different words to check: start this range again in that riwayah
+      document.addEventListener('ql:riwayah', () => { if (phase === 'tracking' && mode === 'surah') $('setup').requestSubmit(); });
       setInterval(syncBack, 800);
     }
 

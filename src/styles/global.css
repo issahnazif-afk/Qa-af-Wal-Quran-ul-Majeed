@@ -161,3 +161,8 @@ body.has-qbar.has-player { padding-bottom: calc(var(--qbar-h) + 84px + env(safe-
 .tj-legend { display: none; flex-wrap: wrap; gap: 4px 14px; justify-content: center; font-size: 12px; color: var(--muted); max-width: 900px; margin: -8px auto 16px; padding: 0 12px; }
 .tj-legend i { font-style: normal; font-size: 14px; }
 :root[data-script="tajweed"] .tj-legend { display: flex; }
+
+/* other riwayat: flowing text in the riwayah's own font */
+.mp .mp-flow { font-size: var(--mfs); line-height: 2.15; text-align: justify; text-align-last: center; direction: rtl; }
+.mp.mp-flowpage .mp-lines { justify-content: flex-start; gap: .3em; }
+.mp .mk { font-family: 'KFGQPC Hafs', var(--font-quran); }

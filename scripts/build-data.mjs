@@ -14,7 +14,7 @@ import fs from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import cfg from '../site.config.mjs';
-import { tokenize } from '../src/lib/recite.mjs';
+import { tokenize, qpc } from '../src/lib/recite.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const OUT = path.join(ROOT, 'public', 'data');
@@ -204,7 +204,7 @@ async function readWordByWord(session) {
 }
 
 // Tajweed-coloured text, one HTML snippet per word. Only <span class="tj-…"> survives sanitising.
-export function tajweedWords(html) {
+export function tajweedWords(html, tanzilText = false) {
   const src = html.replace(/<span class=["']?end["']?>[^<]*<\/span>/g, '').trim();
   const words = [];
   const open = [];          // tajweed classes currently open
@@ -227,14 +227,49 @@ export function tajweedWords(html) {
       else if (/^<\/tajweed>$/i.test(part) && open.length) { open.pop(); cur += '</span>'; }
       continue;   // any other tag is dropped
     }
-    part.replace(/[<>&"]/g, '').split(' ').forEach((txt, k) => { if (k > 0) flush(); cur += txt; });
+    const clean = part.replace(/[<>&"]/g, '');
+    (tanzilText ? qpc(clean) : clean).split(' ').forEach((txt, k) => { if (k > 0) flush(); cur += txt; });
   }
   flush();
   return words;
 }
 
+// AlQuran.cloud "quran-tajweed": rules are marked as [x[letters] or [x:123[letters]
+const ALQ_RULES = { h: 'ham_wasl', s: 'slnt', l: 'laam_shamsiyah', n: 'madda_normal', p: 'madda_permissible',
+  m: 'madda_necessary', o: 'madda_obligatory', q: 'qalaqah', c: 'ikhafa_shafawi', f: 'ikhafa', w: 'idgham_shafawi',
+  i: 'iqlab', a: 'idgham_ghunnah', u: 'idgham_wo_ghunnah', d: 'idgham_mutajanisayn', b: 'idgham_mutaqaribayn', g: 'ghunnah' };
+const alqToTags = (t) => t.replace(/\[([a-z])(?::\d+)?\[([^\]]*)\]/g, (m, k, x) => ALQ_RULES[k] ? `<tajweed class=${ALQ_RULES[k]}>${x}</tajweed>` : x);
+
+async function readTajweedAlq(tanzil) {
+  try {
+    const j = await getJson('https://api.alquran.cloud/v1/quran/quran-tajweed', 'tr-quran-tajweed.json');
+    const all = {};
+    let ok = 0, bad = 0;
+    for (const sj of j.data.surahs) {
+      const s = tanzil[sj.number - 1];
+      const out = {};
+      for (const x of sj.ayahs) {
+        // the first ayah of each surah may carry the Bismillah in front
+        let src = x.text;
+        const words = tajweedWords(alqToTags(src), true);
+        const expected = tokenize(s.ayahs[x.numberInSurah - 1].ar, `${s.n}:${x.numberInSurah}`).length;
+        let fit = words.length === expected ? words : words.length === expected + 4 && x.numberInSurah === 1 && s.n !== 1 ? words.slice(4) : null;
+        if (fit) { out[x.numberInSurah] = fit; ok++; } else bad++;
+      }
+      all[sj.number] = out;
+    }
+    console.log(`✓ Tajweed text (AlQuran.cloud): ${ok} ayahs${bad ? `, ${bad} kept plain (word count did not match)` : ''}`);
+    return ok > 6000 ? all : null;
+  } catch (e) {
+    console.warn(`– Tajweed from AlQuran.cloud unavailable: ${e.message}`);
+    return null;
+  }
+}
+
 async function readTajweed(session, tanzil) {
-  if (!session) { console.log('– Tajweed text skipped (QF_CLIENT_ID / QF_CLIENT_SECRET not set)'); return null; }
+  const alq = await readTajweedAlq(tanzil);
+  if (alq) return alq;
+  if (!session) { console.log('– Tajweed text skipped (no other source; add QF_CLIENT_ID / QF_CLIENT_SECRET to try Quran Foundation)'); return null; }
   const { qf, headers } = session;
   const all = {};
   let ok = 0, bad = 0;
@@ -269,6 +304,32 @@ async function readTajweed(session, tanzil) {
     console.warn(`– Tajweed text skipped: ${e.message}`);
     return null;
   }
+}
+
+// ── 5b. Other riwayat ─────────────────────────────────────────
+// The fawazahmed0 copies swap three KFGQPC tanween marks for their Unicode "open" forms; the KFGQPC
+// riwayah fonts expect the original marks, so they are swapped back for display.
+function riwayahDisplay(t, id) {
+  let x = t.replace(/\u08F2/g, '\u0656').replace(/\u08F0/g, '\u0657').replace(/\u08F1/g, '\u065E');
+  if (id === 'doori' || id === 'soosi') x = x.replace(/\u065C/g, '\u06ED');
+  return x;
+}
+async function readRiwayat() {
+  const out = [];
+  for (const r of cfg.riwayat ?? []) {
+    try {
+      const j = await getJson(`https://cdn.jsdelivr.net/gh/fawazahmed0/quran-api@1/editions/${r.edition}.json`, `rw-${r.id}.json`);
+      const bySurah = {};
+      for (const v of j.quran) (bySurah[v.chapter] ??= {})[v.verse] = riwayahDisplay(v.text, r.id);
+      const n = Object.values(bySurah).reduce((t, x) => t + Object.keys(x).length, 0);
+      if (n !== 6236) throw new Error(`${n} ayahs`);
+      out.push({ ...r, bySurah });
+      console.log(`✓ Riwayah ${r.name}`);
+    } catch (e) {
+      console.warn(`– Riwayah ${r.name} skipped: ${e.message}`);
+    }
+  }
+  return out;
 }
 
 // ── 6. Mushaf layout (QUL, KFGQPC V2, 604 pages × 15 lines) ───
@@ -309,6 +370,7 @@ async function main() {
   try { session = await qfSession(); } catch (e) { console.warn(`– Quran Foundation sign-in failed: ${e.message}`); }
   const wbw = await readWordByWord(session);
   const tajweed = await readTajweed(session, tanzil);
+  const riwayat = await readRiwayat();
   const layout = await readLayout(tanzil);
   const juzPage = trs[cfg.defaultTranslation].juzPage;
   // the QUL layout decides which page every ayah is on
@@ -332,7 +394,8 @@ async function main() {
 
   await writeJson('meta.json', {
     surahs: surahIndex, pages: pageStarts, juzs: juzStarts,
-    translations: cfg.translations, wbw: !!wbw, tajweed: !!tajweed, _copyright: TANZIL_NOTICE,
+    translations: cfg.translations, wbw: !!wbw, tajweed: !!tajweed,
+    riwayat: riwayat.map(({ id, name, font }) => ({ id, name, font })), _copyright: TANZIL_NOTICE,
   });
 
   const search = [];
@@ -353,6 +416,7 @@ async function main() {
     await writeJson(`morph/${pad(s.n)}.json`, { ...morph[s.n], _copyright: CORPUS_NOTICE });
     if (wbw) await writeJson(`wbw/${pad(s.n)}.json`, wbw[s.n]);
     if (tajweed) await writeJson(`tajweed/${pad(s.n)}.json`, tajweed[s.n] ?? {});
+    for (const r of riwayat) await writeJson(`riwayah/${r.id}/${pad(s.n)}.json`, r.bySurah[s.n] ?? {});
   }
   await writeJson('search.json', search);
   for (const [p, lines] of layout.pages) {

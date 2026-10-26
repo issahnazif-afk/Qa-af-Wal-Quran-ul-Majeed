@@ -4,13 +4,7 @@ import { getMeta } from '../lib/data.mjs';
 interface Props { mode: 'listen' | 'mushaf' | 'recite' | 'hifz'; s?: number; a?: number; }
 const { mode, s = 1, a = 1 } = Astro.props;
 const meta = getMeta();
-const riwayat = [
-  ['hafs', 'Hafs ʿan ʿĀṣim', true],
-  ['warsh', 'Warsh ʿan Nāfiʿ', false],
-  ['qaloun', 'Qālūn ʿan Nāfiʿ', false],
-  ['douri', 'Ad-Dūrī ʿan Abī ʿAmr', false],
-  ['sousi', 'As-Sūsī ʿan Abī ʿAmr', false],
-];
+const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r) => [r.id, r.name])];
 ---
 <nav class="qbar" id="qbar" aria-label="Quran menu" data-mode={mode} data-s={s} data-a={a} data-tajweed={meta.tajweed ? '1' : ''}>
   <div class="qbar-row">
@@ -36,12 +30,12 @@ const riwayat = [
     <label>Script
       <select id="qb-script" aria-label="Script">
         <option value="plain">Plain</option>
-        <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (needs Quran Foundation data)'}</option>
+        <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (not built yet)'}</option>
       </select>
     </label>
     <label>Riwayah
-      <select id="qb-riwayah" aria-label="Riwayah">
-        {riwayat.map(([id, name, ok]) => <option value={id} disabled={!ok}>{ok ? name : `${name} (text not added yet)`}</option>)}
+      <select id="qb-riwayah" aria-label="Riwayah" disabled={mode === 'hifz'} title={mode === 'hifz' ? 'The Hifz test uses Hafs: the Sheikh’s recitations are in Hafs' : ''}>
+        {riwayat.map(([id, name]) => <option value={id}>{name}</option>)}
       </select>
     </label>
   </div>
@@ -107,6 +101,25 @@ const riwayat = [
   const saved = store.get('script', 'plain');
   scriptSel.value = saved === 'tajweed' && bar.dataset.tajweed ? 'tajweed' : 'plain';
   document.documentElement.dataset.script = scriptSel.value;
+  // riwayah (remembered, applied live). Tajweed colours exist for Hafs only.
+  const rwSel = document.getElementById('qb-riwayah');
+  const rwSaved = store.get('riwayah', 'hafs');
+  rwSel.value = here === 'hifz' ? 'hafs' : ([...rwSel.options].some((o) => o.value === rwSaved) ? rwSaved : 'hafs');
+  function applyRw() {
+    document.documentElement.dataset.riwayah = rwSel.value;
+    const tjOpt = scriptSel.querySelector('option[value="tajweed"]');
+    if (rwSel.value !== 'hafs') {
+      if (scriptSel.value === 'tajweed') { scriptSel.value = 'plain'; document.documentElement.dataset.script = 'plain'; }
+      tjOpt.disabled = true;
+    } else tjOpt.disabled = !bar.dataset.tajweed;
+  }
+  applyRw();
+  rwSel.addEventListener('change', () => {
+    store.set('riwayah', rwSel.value);
+    applyRw();
+    document.dispatchEvent(new CustomEvent('ql:riwayah', { detail: { riwayah: rwSel.value } }));
+  });
+
   scriptSel.addEventListener('change', () => {
     store.set('script', scriptSel.value);
     document.documentElement.dataset.script = scriptSel.value;

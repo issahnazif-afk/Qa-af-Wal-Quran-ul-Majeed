@@ -31,12 +31,15 @@ const nav = [
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri+Quran&family=IBM+Plex+Sans+Arabic:wght@400;600&family=IBM+Plex+Sans:wght@400;500;600;700&display=swap" />
   <link rel="preload" href={u('fonts/UthmanicHafs_V22.ttf')} as="font" type="font/ttf" crossorigin />
-  <style is:inline set:html={`@font-face{font-family:"KFGQPC Hafs";src:url("${u('fonts/UthmanicHafs_V22.ttf')}") format("truetype");font-display:swap}`}></style>
+  <style is:inline set:html={`@font-face{font-family:"KFGQPC Hafs";src:url("${u('fonts/UthmanicHafs_V22.ttf')}") format("truetype");font-display:swap}` +
+    (cfg.riwayat ?? []).map((r) => `@font-face{font-family:"KFGQPC ${r.id}";src:url("${u('fonts/' + r.font)}") format("truetype");font-display:swap}:root[data-riwayah="${r.id}"] .rw{font-family:"KFGQPC ${r.id}","KFGQPC Hafs",serif}`).join('')}></style>
   <script is:inline>
     (function () {
       try {
         var t = localStorage.getItem('ql-theme');
         if (t) document.documentElement.dataset.theme = t;
+        var sc = localStorage.getItem('ql-script'); if (sc) document.documentElement.dataset.script = JSON.parse(sc);
+        var rw = localStorage.getItem('ql-riwayah'); if (rw) document.documentElement.dataset.riwayah = JSON.parse(rw);
         var s = localStorage.getItem('ql-arabic-size');
         if (s) document.documentElement.style.setProperty('--arabic-size', s + 'px');
       } catch (e) {}

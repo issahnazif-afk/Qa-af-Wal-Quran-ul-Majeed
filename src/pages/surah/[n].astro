@@ -90,6 +90,7 @@ const juz = s.ayahs[0].juz;
         <label class="control" style="min-height:44px"><input type="checkbox" id="tr-toggle" checked style="width:18px;height:18px" /> Show translation</label>
       </section>
 
+      <p class="card" id="rw-note" hidden style="margin:0;padding:12px 16px;font-size:14px">The text is shown in the riwayah you chose. The recitation audio is in Hafs, as the free reciters available here recite in Hafs.</p>
       {showBismillah && <div class="quran bism" lang="ar">{qpc(s.bismillah)}</div>}
 
       {s.ayahs.map((ay) => (
@@ -221,20 +222,28 @@ const juz = s.ayahs[0].juz;
       document.getElementById(`a${e.detail.a}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
     });
     // tajweed colours on or off
+    // tajweed colours, or another riwayah's text in its own font
+    const rwNote = document.getElementById('rw-note');
     async function applyScript() {
-      const tj = document.documentElement.dataset.script === 'tajweed'
+      const rwId = document.documentElement.dataset.riwayah || 'hafs';
+      const rw = rwId !== 'hafs' ? await getJson(`riwayah/${rwId}/${pad(surah)}.json`).catch(() => null) : null;
+      const tj = !rw && document.documentElement.dataset.script === 'tajweed'
         ? await getJson(`tajweed/${pad(surah)}.json`).catch(() => null) : null;
+      if (rwNote) rwNote.hidden = !rw;
       for (const el of articles) {
         const q = el.querySelector('.quran');
         q.dataset.plain ??= q.innerHTML;
+        const mk = q.querySelector('.marker')?.outerHTML ?? '';
+        q.classList.toggle('rw', !!rw);
+        if (rw?.[el.dataset.a]) { q.textContent = rw[el.dataset.a] + ' '; q.insertAdjacentHTML('beforeend', mk); continue; }
         const words = tj?.[el.dataset.a];
         if (!words) { q.innerHTML = q.dataset.plain; continue; }
-        const mk = q.querySelector('.marker')?.outerHTML ?? '';
         q.innerHTML = words.join(' ') + ' ' + mk;
       }
     }
     document.addEventListener('ql:script', applyScript);
-    if (document.documentElement.dataset.script === 'tajweed') applyScript();
+    document.addEventListener('ql:riwayah', applyScript);
+    if (document.documentElement.dataset.script === 'tajweed' || (document.documentElement.dataset.riwayah || 'hafs') !== 'hafs') applyScript();
 
     // remember position
     const io = new IntersectionObserver((entries) => {

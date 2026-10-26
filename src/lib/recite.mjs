@@ -58,12 +58,13 @@ export function qpc(text) {
 const HAS_LETTER = /[\u0621-\u063A\u0641-\u064A\u0671]/;
 
 // Split an ayah into words to recite. Pause marks stay attached to the word before them.
-export function tokenize(ar, key) {
+export function tokenize(ar, key, { raw = false } = {}) {
+  const show = raw ? (t) => t : qpc;
   const words = [];
   for (const tok of ar.split(/\s+/).filter(Boolean)) {
-    if (!HAS_LETTER.test(tok) && words.length) { words[words.length - 1].display += ' ' + qpc(tok); continue; }
+    if (!HAS_LETTER.test(tok) && words.length) { words[words.length - 1].display += ' ' + show(tok); continue; }
     const plain = normalize(tok).replace(/\s/g, '');
-    words.push({ display: qpc(tok), plain, targets: [plain], maxN: 2 });
+    words.push({ display: show(tok), plain, targets: [plain], maxN: 2 });
   }
   // QUL and Quran.com count «إِلْ يَاسِينَ» (37:130) as one word
   if (key === '37:130' && words.length >= 2) {

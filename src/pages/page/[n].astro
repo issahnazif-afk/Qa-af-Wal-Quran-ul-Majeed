@@ -153,6 +153,7 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     const wide = matchMedia('(min-width: 1100px) and (orientation: landscape)');
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
     const script = () => document.documentElement.dataset.script || store.get('script', 'plain');
+    const riwayah = () => document.documentElement.dataset.riwayah || 'hafs';
     const rightOf = (p) => (p % 2 ? p : p - 1);
 
     // ── two-page spreads on wide screens ──────────────────────
@@ -174,7 +175,7 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     async function papersFor(p) {
       const pages = spreading() ? [rightOf(p), rightOf(p) + 1].filter((x) => x >= 1 && x <= total) : [p];
       return Promise.all(pages.map(async (x) => {
-        const paper = await buildPaper(x, { getJson, pad, script: script() });
+        const paper = await buildPaper(x, { getJson, pad, script: script(), riwayah: riwayah() });
         if (x !== p) paper.classList.add('partner');
         return paper;
       }));
@@ -304,6 +305,7 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       box.querySelector(`[data-k="${s}:${a}"]`)?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
     });
     document.addEventListener('ql:script', () => render(n, 0));
+    document.addEventListener('ql:riwayah', () => render(n, 0));
 
     // ── listening ─────────────────────────────────────────────
     const player = initPlayer({ lazy: true });   // the audio bar appears when you press play
@@ -325,7 +327,7 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       // The first page is already in the HTML; redraw it only if it needs tajweed colours or the second page.
       root.classList.toggle('can-spread', spreadToggle.checked);
       spreadToggle.closest('label').hidden = !wide.matches;
-      if (script() === 'tajweed' || spreading()) await render(n, 0);
+      if (script() === 'tajweed' || riwayah() !== 'hafs' || spreading()) await render(n, 0);
       else { fitAll(); afterRender(); }
       if (k) { select(k); box.querySelector(`[data-k="${k}"]`)?.scrollIntoView({ block: 'center' }); }
     })();
