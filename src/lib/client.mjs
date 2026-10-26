@@ -55,7 +55,7 @@ export const audioUrl = (reciter, s, a) => `https://everyayah.com/data/${reciter
 
 // ── Audio player (one per page) ───────────────────────────────
 // Markup comes from src/components/Player.astro.
-export function initPlayer() {
+export function initPlayer({ lazy = false } = {}) {
   const bar = document.getElementById('player');
   if (!bar) return null;
   const audio = new Audio();
@@ -80,6 +80,7 @@ export function initPlayer() {
     playBtn.querySelector('[data-i="pause"]').hidden = !on;
   }
   function load(i) {
+    show();
     idx = i;
     const item = queue[idx];
     if (!item) { stop(); return; }
@@ -128,8 +129,8 @@ export function initPlayer() {
     if (idx >= 0) load(idx);
   });
 
-  bar.hidden = false;
-  document.body.classList.add('has-player');
+  const show = () => { bar.hidden = false; document.body.classList.add('has-player'); };
+  if (!lazy) show();
 
   return {
     setQueue(list) { queue = list; },

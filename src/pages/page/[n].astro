@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Player from '../../components/Player.astro';
+import QuranBar from '../../components/QuranBar.astro';
 import cfg from '../../../site.config.mjs';
 import { getMeta, getSurah, getLayout, arNum } from '../../lib/data.mjs';
 import { tokenize, qpc } from '../../lib/recite.mjs';
@@ -38,7 +39,9 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     .mushaf-v2 .bar { background: var(--surface); border-bottom: 1px solid var(--line); }
     .mushaf-v2 .bar .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding-top: 10px; padding-bottom: 10px; }
     .mushaf-v2 .spacer { flex: 1 1 auto; }
-    .mushaf-v2 .spread { display: flex; flex-direction: row; justify-content: center; gap: 18px; padding: 20px 16px 28px; direction: rtl; touch-action: pan-y; }
+    .mushaf-v2 .spread.dragging { transition: none; }
+    .mushaf-v2 .spread.settle { transition: transform .22s cubic-bezier(.2,.7,.2,1), opacity .22s; }
+    .mushaf-v2 .spread { will-change: transform; display: flex; flex-direction: row; justify-content: center; gap: 18px; padding: 20px 16px 28px; direction: rtl; touch-action: pan-y; }
     .mushaf-v2 .paper { flex: 0 1 600px; min-width: 0; aspect-ratio: 0.66; background: var(--paper); border: 1px solid var(--paper-line); border-radius: 6px; padding: 22px clamp(12px, 3.2vw, 34px) 16px; display: flex; flex-direction: column; gap: 8px; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
     .mushaf-v2 .paper.partner { display: none; }
     @media (min-width: 1100px) and (orientation: landscape) {
@@ -76,11 +79,10 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
           <span class="muted">of {total}</span>
         </form>
         {n > 1 ? <a class="btn" href={u(`page/${n - 1}/`)} rel="prev" id="go-prev" aria-label="Previous page">Previous →</a> : <span class="btn" aria-disabled="true">Previous →</span>}
-        <span class="muted">{enNames}, juz {here.layout.juz}</span>
+        <span class="muted" id="where">{enNames}, juz {here.layout.juz}</span>
         <span class="spacer"></span>
         <label class="control" style="min-height:44px"><input type="checkbox" id="spread" style="width:18px;height:18px" /> Two pages</label>
         <button class="btn" type="button" id="focus">Focus mode</button>
-        <a class="btn" href={u(`practice/?follow=1`)}>Recite</a>
         <button class="btn btn-primary" type="button" id="play-page">Play page</button>
       </div>
     </div>
@@ -109,6 +111,18 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       ))}
     </div>
     <p class="hintline">Swipe or use the arrow keys to turn pages. Tap an ayah for its translation.</p>
+    <div class="tj-legend" aria-label="Tajweed colours">
+      <span><i class="tj-ham_wasl">●</i> silent / hamzat al-wasl</span>
+      <span><i class="tj-madda_normal">●</i> madd 2</span>
+      <span><i class="tj-madda_permissible">●</i> madd 2, 4, 6</span>
+      <span><i class="tj-madda_obligatory">●</i> madd 4–5</span>
+      <span><i class="tj-madda_necessary">●</i> madd 6</span>
+      <span><i class="tj-ghunnah">●</i> ghunnah</span>
+      <span><i class="tj-ikhafa">●</i> ikhfa</span>
+      <span><i class="tj-idgham_ghunnah">●</i> idgham</span>
+      <span><i class="tj-iqlab">●</i> iqlab</span>
+      <span><i class="tj-qalaqah">●</i> qalqalah</span>
+    </div>
 
     <section class="card info" id="info" hidden aria-live="polite">
       <b id="info-key"></b>
@@ -121,50 +135,103 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     </section>
 
     <button class="btn exit-focus" type="button" id="exit-focus">Exit focus</button>
-    <script type="application/json" id="page-ayahs" set:html={JSON.stringify(pages.map((pg) => ({ p: pg.p, ayahs: pg.ayahs.map(([s, a]) => ({ s, a, en: getSurah(s).en, tr: trOf(s, a) })) })))}></script>
   </div>
 
   <Player />
+  <QuranBar mode="mushaf" s={here.ayahs[0][0]} a={here.ayahs[0][1]} />
 
   <script>
-    import { initPlayer, lastRead, store } from '../../lib/client.mjs';
-    import { fitPaper } from '../../lib/mushaf.mjs';
+    import { initPlayer, lastRead, store, getJson, pad } from '../../lib/client.mjs';
+    import { buildPaper, fitPaper, arNum } from '../../lib/mushaf.mjs';
     import { u } from '../../lib/url.mjs';
 
     const root = document.getElementById('mushaf');
-    const n = Number(root.dataset.n), total = Number(root.dataset.total), right = Number(root.dataset.right);
-    const data = JSON.parse(document.getElementById('page-ayahs').textContent);
-    const spreadBox = document.getElementById('spread-box');
+    const total = Number(root.dataset.total);
+    let n = Number(root.dataset.n);
+    const box = document.getElementById('spread-box');
     const spreadToggle = document.getElementById('spread');
     const wide = matchMedia('(min-width: 1100px) and (orientation: landscape)');
+    const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const script = () => document.documentElement.dataset.script || store.get('script', 'plain');
+    const rightOf = (p) => (p % 2 ? p : p - 1);
 
-    // two-page spreads on wide screens, if the reader wants them
+    // ── two-page spreads on wide screens ──────────────────────
     spreadToggle.checked = store.get('spread', true);
+    const spreading = () => spreadToggle.checked && wide.matches;
     function applySpread() {
       root.classList.toggle('can-spread', spreadToggle.checked);
       spreadToggle.closest('label').hidden = !wide.matches;
-      fitAll();
+      render(n, 0);
     }
-    const spreading = () => spreadToggle.checked && wide.matches && data.length > 1;
     spreadToggle.addEventListener('change', () => { store.set('spread', spreadToggle.checked); applySpread(); });
     wide.addEventListener?.('change', applySpread);
 
-    function fitAll() { document.querySelectorAll('.mushaf-v2 .paper').forEach((p) => { if (p.offsetParent) fitPaper(p); }); }
+    function fitAll() { box.querySelectorAll('.paper').forEach((p) => { if (p.offsetParent) fitPaper(p); }); }
     let rt;
     addEventListener('resize', () => { clearTimeout(rt); rt = setTimeout(fitAll, 150); });
-    applySpread();
 
-    // turning pages
+    // ── drawing pages in the browser, so turning is instant ───
+    async function papersFor(p) {
+      const pages = spreading() ? [rightOf(p), rightOf(p) + 1].filter((x) => x >= 1 && x <= total) : [p];
+      return Promise.all(pages.map(async (x) => {
+        const paper = await buildPaper(x, { getJson, pad, script: script() });
+        if (x !== p) paper.classList.add('partner');
+        return paper;
+      }));
+    }
+    function preload(p) {
+      for (const x of [p + 1, p + 2, p - 1, p - 2]) if (x >= 1 && x <= total) getJson(`layout/${pad(x)}.json`).then((l) => {
+        for (const line of l.lines) if (line.t === 'a') for (const [s] of line.w) getJson(`surah/${pad(s)}.json`).catch(() => {});
+      }).catch(() => {});
+    }
+
+    let busy = false;
+    async function render(p, dir) {
+      if (busy) return;
+      busy = true;
+      try {
+        const papers = await papersFor(p);
+        n = p;
+        if (dir && !reduceMotion) {
+          box.classList.add('settle');
+          box.style.transform = `translateX(${dir > 0 ? 40 : -40}px)`;   // RTL: the next page comes in from the left
+          box.style.opacity = '0';
+        }
+        box.replaceChildren(...papers);
+        await Promise.all(papers.filter((x) => x.offsetParent).map((x) => fitPaper(x)));
+        requestAnimationFrame(() => { box.style.transform = ''; box.style.opacity = ''; });
+        setTimeout(() => box.classList.remove('settle'), 260);
+        afterRender();
+      } finally { busy = false; }
+    }
+
+    async function afterRender() {
+      document.getElementById('pg').value = String(n);
+      document.title = document.title.replace(/page \d+/, `page ${n}`);
+      if (location.pathname !== u(`page/${n}/`)) history.replaceState(null, '', u(`page/${n}/`) + location.search.replace(/[?&]k=[^&]*/, ''));
+      const first = box.querySelector('.paper:not(.partner) [data-k]') ?? box.querySelector('[data-k]');
+      if (first) {
+        const [s, a] = first.dataset.k.split(':').map(Number);
+        const sura = await getJson(`surah/${pad(s)}.json`);
+        document.getElementById('where').textContent = `${sura.en}, juz ${sura.ayahs[a - 1].juz}`;
+        document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s, a } }));
+      }
+      preload(n);
+    }
+
     function go(delta) {
       const step = spreading() ? 2 : 1;
-      const base = spreading() ? right : n;
+      const base = spreading() ? rightOf(n) : n;
       const target = Math.min(total, Math.max(1, base + delta * step));
-      if (target !== n && !(spreading() && target === right)) location.href = u(`page/${target}/`);
+      if (target === base) return;
+      render(target, delta);
     }
+
+    // ── controls: buttons, keys, swipe ────────────────────────
     document.getElementById('jump').addEventListener('submit', (e) => {
       e.preventDefault();
       const v = Math.min(total, Math.max(1, parseInt(document.getElementById('pg').value, 10) || 1));
-      location.href = u(`page/${v}/`);
+      render(v, v > n ? 1 : -1);
     });
     document.getElementById('go-next')?.addEventListener('click', (e) => { e.preventDefault(); go(1); });
     document.getElementById('go-prev')?.addEventListener('click', (e) => { e.preventDefault(); go(-1); });
@@ -174,16 +241,26 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       if (e.key === 'ArrowRight') go(-1);
       if (e.key === 'Escape' && document.body.classList.contains('focus')) setFocus(false);
     });
-    let tx = null, ty = null;
-    spreadBox.addEventListener('touchstart', (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
-    spreadBox.addEventListener('touchend', (e) => {
-      if (tx === null) return;
-      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
-      tx = null;
-      if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) go(dx > 0 ? 1 : -1);   // swipe right = next page
+    // the page follows your finger; let go past a third of a thumb and it turns
+    let sx = null, sy = null, dx = 0, horiz = null;
+    box.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; dx = 0; horiz = null; }, { passive: true });
+    box.addEventListener('touchmove', (e) => {
+      if (sx === null) return;
+      dx = e.touches[0].clientX - sx;
+      const dy = e.touches[0].clientY - sy;
+      if (horiz === null && Math.abs(dx) + Math.abs(dy) > 10) horiz = Math.abs(dx) > Math.abs(dy);
+      if (horiz) { box.classList.add('dragging'); box.style.transform = `translateX(${dx}px)`; box.style.opacity = String(1 - Math.min(0.5, Math.abs(dx) / 600)); }
+    }, { passive: true });
+    box.addEventListener('touchend', () => {
+      if (sx === null) return;
+      box.classList.remove('dragging');
+      const moved = horiz && Math.abs(dx) > 60;
+      sx = null;
+      if (moved) go(dx > 0 ? 1 : -1);    // swipe right = next page
+      else { box.classList.add('settle'); box.style.transform = ''; box.style.opacity = ''; setTimeout(() => box.classList.remove('settle'), 260); }
     });
 
-    // focus mode
+    // ── focus mode ────────────────────────────────────────────
     function setFocus(on) {
       document.body.classList.toggle('focus', on);
       try { if (on) document.documentElement.requestFullscreen?.(); else if (document.fullscreenElement) document.exitFullscreen(); } catch {}
@@ -193,41 +270,64 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     document.getElementById('exit-focus').addEventListener('click', () => setFocus(false));
     document.addEventListener('fullscreenchange', () => { if (!document.fullscreenElement) { document.body.classList.remove('focus'); fitAll(); } });
 
-    // tapping an ayah
-    const allAyahs = data.flatMap((d) => d.ayahs);
+    // ── tapping an ayah ───────────────────────────────────────
     const info = document.getElementById('info');
     let selKey = null;
     function mark(cls, key) {
-      document.querySelectorAll(`.mushaf-v2 .${cls}`).forEach((x) => x.classList.remove(cls));
-      if (key) document.querySelectorAll(`.mushaf-v2 [data-k="${key}"]`).forEach((x) => x.classList.add(cls));
+      box.querySelectorAll(`.${cls}`).forEach((x) => x.classList.remove(cls));
+      if (key) box.querySelectorAll(`[data-k="${key}"]`).forEach((x) => x.classList.add(cls));
     }
-    spreadBox.addEventListener('click', (e) => {
-      const w = e.target.closest('[data-k]');
-      if (!w) return;
-      selKey = w.dataset.k;
-      const [s, a] = selKey.split(':').map(Number);
-      const ay = allAyahs.find((x) => x.s === s && x.a === a);
-      mark('sel', selKey);
-      document.getElementById('info-key').textContent = `${ay?.en ?? ''} ${selKey}`;
-      document.getElementById('info-tr').textContent = ay?.tr ?? '';
-      document.getElementById('info-study').href = u(`ayah/?k=${selKey}`);
+    async function select(key) {
+      selKey = key;
+      const [s, a] = key.split(':').map(Number);
+      const sura = await getJson(`surah/${pad(s)}.json`);
+      const ay = sura.ayahs[a - 1];
+      mark('sel', key);
+      document.getElementById('info-key').textContent = `${sura.en} ${key}`;
+      document.getElementById('info-tr').textContent = Object.values(ay.tr)[0] ?? '';
+      document.getElementById('info-study').href = u(`ayah/?k=${key}`);
       document.getElementById('info-read').href = u(`surah/${s}/#a${a}`);
       info.hidden = false;
       lastRead.set({ s, a });
-    });
+      document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s, a } }));
+    }
+    box.addEventListener('click', (e) => { const w = e.target.closest('[data-k]'); if (w) select(w.dataset.k); });
 
-    // listening
-    const player = initPlayer();
-    const visible = () => (spreading() ? data : data.filter((d) => d.p === n)).flatMap((d) => d.ayahs);
-    document.getElementById('play-page').addEventListener('click', () => {
-      player.setQueue(visible().map((x) => ({ s: x.s, a: x.a, label: `${x.en}, ${x.s}:${x.a}` })));
-      player.playAll();
+    // ── the bottom bar: go to a surah and ayah, change the script ──
+    document.addEventListener('ql:goto', async (e) => {
+      e.preventDefault();
+      const { s, a } = e.detail;
+      const sura = await getJson(`surah/${pad(s)}.json`);
+      const p = sura.ayahs[a - 1].page;
+      if (p !== n) await render(p, p > n ? 1 : -1);
+      select(`${s}:${a}`);
+      box.querySelector(`[data-k="${s}:${a}"]`)?.scrollIntoView({ block: 'center', behavior: reduceMotion ? 'auto' : 'smooth' });
     });
-    document.getElementById('info-play').addEventListener('click', () => {
-      if (!selKey) return;
-      player.setQueue(visible().map((x) => ({ s: x.s, a: x.a, label: `${x.en}, ${x.s}:${x.a}` })));
-      player.playAt(selKey);
-    });
+    document.addEventListener('ql:script', () => render(n, 0));
+
+    // ── listening ─────────────────────────────────────────────
+    const player = initPlayer({ lazy: true });   // the audio bar appears when you press play
+    async function visibleQueue() {
+      const keys = [...new Set([...box.querySelectorAll('.paper .mk[data-k]')].filter((x) => x.offsetParent).map((x) => x.dataset.k))];
+      return Promise.all(keys.map(async (k) => {
+        const [s, a] = k.split(':').map(Number);
+        const sura = await getJson(`surah/${pad(s)}.json`);
+        return { s, a, label: `${sura.en}, ${k}` };
+      }));
+    }
+    document.getElementById('play-page').addEventListener('click', async () => { player.setQueue(await visibleQueue()); player.playAll(); });
+    document.getElementById('info-play').addEventListener('click', async () => { if (!selKey) return; player.setQueue(await visibleQueue()); player.playAt(selKey); });
     document.addEventListener('ql:ayah', (e) => mark('playing', e.detail.key));
+
+    // ── start ─────────────────────────────────────────────────
+    (async () => {
+      const k = new URLSearchParams(location.search).get('k');
+      // The first page is already in the HTML; redraw it only if it needs tajweed colours or the second page.
+      root.classList.toggle('can-spread', spreadToggle.checked);
+      spreadToggle.closest('label').hidden = !wide.matches;
+      if (script() === 'tajweed' || spreading()) await render(n, 0);
+      else { fitAll(); afterRender(); }
+      if (k) { select(k); box.querySelector(`[data-k="${k}"]`)?.scrollIntoView({ block: 'center' }); }
+    })();
   </script>
 </Base>

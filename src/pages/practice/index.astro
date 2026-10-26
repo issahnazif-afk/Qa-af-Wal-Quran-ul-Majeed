@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import QuranBar from '../../components/QuranBar.astro';
 import { getMeta } from '../../lib/data.mjs';
 const meta = getMeta();
 ---
@@ -166,6 +167,7 @@ const meta = getMeta();
         <button class="btn" type="button" id="finish" hidden>Finish</button>
       </div>
       <p class="status" id="status" aria-live="polite"></p>
+      <button class="btn" type="button" id="back-place" hidden style="align-self:center">Back to my place</button>
       <div class="choices" id="choices" hidden></div>
       <div class="where" id="where"></div>
       <div class="heard" id="heard" lang="ar" dir="rtl" aria-hidden="true"></div>
@@ -204,6 +206,8 @@ const meta = getMeta();
       </div>
     </section>
   </div>
+
+  <QuranBar mode="recite" />
 
   <script>
     import cfg from '../../../site.config.mjs';
@@ -256,6 +260,15 @@ const meta = getMeta();
     if (params.get('from')) { fromEl.value = params.get('from'); toEl.value = params.get('to') ?? params.get('from'); }
     else if (last?.mode === 'surah' && String(last.s) === surahSel.value) { fromEl.value = String(last.from); toEl.value = String(last.to); }
     if (!SR) { $('unsupported').hidden = false; $('mic').hidden = true; }
+
+    document.addEventListener('ql:goto', (e) => {
+      e.preventDefault();
+      setMode('surah');
+      surahSel.value = String(e.detail.s);
+      syncRange();
+      fromEl.value = String(e.detail.a);
+      $('setup').requestSubmit();
+    });
 
     $('change').addEventListener('click', () => {
       stopListening();
@@ -431,7 +444,7 @@ const meta = getMeta();
     // Lay the page out line by line, exactly as in the printed mushaf (QUL layout).
     async function renderPage(p, animate) {
       const map = new Map(items.map((it) => [it.key, it]));
-      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan });
+      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan, script: document.documentElement.dataset.script || 'plain' });
       paper.classList.toggle('outlines', $('p-outline').checked);
       paper.classList.toggle('context', $('p-context').checked);
       await swapPaper(paper, animate);
@@ -664,6 +677,30 @@ const meta = getMeta();
       updateCurrent();
       say('Ayah cleared. Recite it again from the start.');
     });
+
+
+    // ── swipe to look at the page before or after; recitation brings you back ──
+    {
+      const stage = $('stage');
+      let sx = null, sy = null;
+      const homePage = () => flat[Math.min(pos, flat.length - 1)]?.page;
+      const syncBack = () => { $('back-place').hidden = !flat.length || shownPage === homePage(); };
+      async function peek(delta) {
+        if (!flat.length || running) return;
+        const p = Math.min(604, Math.max(1, shownPage + delta));
+        if (p !== shownPage) { await renderPage(p, true); syncBack(); }
+      }
+      stage.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+      stage.addEventListener('touchend', (e) => {
+        if (sx === null) return;
+        const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+        sx = null;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) peek(dx > 0 ? 1 : -1);   // swipe right = next page
+      });
+      $('back-place').addEventListener('click', async () => { const p = homePage(); if (p) { await renderPage(p, true); updateCurrent(); } syncBack(); });
+      document.addEventListener('ql:script', async () => { if (flat.length && shownPage) { await renderPage(shownPage, false); updateCurrent(); } });
+      setInterval(syncBack, 800);
+    }
 
     // ── listening ──────────────────────────────────────────────
     let rec = null, listening = false, lastLocate = 0;

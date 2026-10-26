@@ -1,6 +1,7 @@
 ---
 import Base from '../../layouts/Base.astro';
 import Player from '../../components/Player.astro';
+import QuranBar from '../../components/QuranBar.astro';
 import cfg from '../../../site.config.mjs';
 import { getMeta, getSurah, arNum } from '../../lib/data.mjs';
 import { qpc } from '../../lib/recite.mjs';
@@ -124,6 +125,7 @@ const juz = s.ayahs[0].juz;
   </div>
 
   <Player />
+  <QuranBar mode="listen" s={n} a={1} />
 
   <script>
     import { initPlayer, bookmarks, lastRead, settings, getJson, pad } from '../../lib/client.mjs';
@@ -212,9 +214,34 @@ const juz = s.ayahs[0].juz;
       applyWbw();
     }
 
+    // bottom bar: jump to an ayah in this surah without reloading
+    document.addEventListener('ql:goto', (e) => {
+      if (e.detail.s !== surah) return;
+      e.preventDefault();
+      document.getElementById(`a${e.detail.a}`)?.scrollIntoView({ block: 'center', behavior: 'smooth' });
+    });
+    // tajweed colours on or off
+    async function applyScript() {
+      const tj = document.documentElement.dataset.script === 'tajweed'
+        ? await getJson(`tajweed/${pad(surah)}.json`).catch(() => null) : null;
+      for (const el of articles) {
+        const q = el.querySelector('.quran');
+        q.dataset.plain ??= q.innerHTML;
+        const words = tj?.[el.dataset.a];
+        if (!words) { q.innerHTML = q.dataset.plain; continue; }
+        const mk = q.querySelector('.marker')?.outerHTML ?? '';
+        q.innerHTML = words.join(' ') + ' ' + mk;
+      }
+    }
+    document.addEventListener('ql:script', applyScript);
+    if (document.documentElement.dataset.script === 'tajweed') applyScript();
+
     // remember position
     const io = new IntersectionObserver((entries) => {
-      for (const e of entries) if (e.isIntersecting) lastRead.set({ s: surah, a: Number(e.target.dataset.a) });
+      for (const e of entries) if (e.isIntersecting) {
+        lastRead.set({ s: surah, a: Number(e.target.dataset.a) });
+        document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s: surah, a: Number(e.target.dataset.a) } }));
+      }
     }, { rootMargin: '-40% 0px -55% 0px' });
     articles.forEach((el) => io.observe(el));
   </script>

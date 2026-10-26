@@ -1,5 +1,6 @@
 ---
 import Base from '../../layouts/Base.astro';
+import QuranBar from '../../components/QuranBar.astro';
 import Sheikh from '../../components/Sheikh.astro';
 import cfg from '../../../site.config.mjs';
 import { getMeta } from '../../lib/data.mjs';
@@ -245,6 +246,7 @@ const meta = getMeta();
             <button class="btn" type="button" id="end">End test</button>
           </div>
           <p class="status" id="status" aria-live="polite"></p>
+          <button class="btn" type="button" id="back-place" hidden style="align-self:center">Back to my place</button>
           <div class="where" id="where"></div>
         </div>
         <div class="stage" id="stage"></div>
@@ -278,6 +280,8 @@ const meta = getMeta();
       </div>
     </section>
   </div>
+
+  <QuranBar mode="hifz" />
 
   <script>
     import cfg from '../../../site.config.mjs';
@@ -331,6 +335,16 @@ const meta = getMeta();
       if (saved.s1) { $('t-s1').value = String(saved.s1); $('t-s2').value = String(saved.s2); }
       if (saved.s) { tS.value = String(saved.s); syncAyahs(); $('t-a1').value = String(saved.a1); $('t-a2').value = String(saved.a2); }
     }
+    const qs = new URLSearchParams(location.search).get('s');
+    if (qs) { setScope('ayahs'); tS.value = qs; syncAyahs(); }
+    document.addEventListener('ql:goto', (e) => {
+      e.preventDefault();
+      if (phase !== 'idle' && phase !== 'done') return;
+      setScope('ayahs'); tS.value = String(e.detail.s); syncAyahs();
+      $('t-a1').value = String(e.detail.a);
+      $('setup').hidden = false; $('intro').hidden = false; $('results').hidden = true;
+      $('setup').scrollIntoView({ block: 'start' });
+    });
     $('t-reciter').value = settings.reciter;
     if (!SR) $('unsupported').hidden = false;
 
@@ -594,7 +608,7 @@ const meta = getMeta();
     // Lay the page out line by line, exactly as in the printed mushaf (QUL layout).
     async function renderPage(p, animate) {
       const map = new Map(items.map((it) => [it.key, it]));
-      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan });
+      const paper = await buildPaper(p, { getJson, pad, items: map, wordSpan, markerSpan, script: document.documentElement.dataset.script || 'plain' });
       await swapPaper(paper, animate);
       shownPage = p;
     }
@@ -844,6 +858,30 @@ const meta = getMeta();
     }
     $('again').addEventListener('click', () => $('setup').requestSubmit());
     $('change').addEventListener('click', () => { $('results').hidden = true; $('setup').hidden = false; $('intro').hidden = false; });
+
+
+    // ── swipe to look at the page before or after; recitation brings you back ──
+    {
+      const stage = $('stage');
+      let sx = null, sy = null;
+      const homePage = () => flat[Math.min(pos, flat.length - 1)]?.page;
+      const syncBack = () => { $('back-place').hidden = !flat.length || shownPage === homePage(); };
+      async function peek(delta) {
+        if (!flat.length || running) return;
+        const p = Math.min(604, Math.max(1, shownPage + delta));
+        if (p !== shownPage) { await renderPage(p, true); syncBack(); }
+      }
+      stage.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
+      stage.addEventListener('touchend', (e) => {
+        if (sx === null) return;
+        const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
+        sx = null;
+        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) peek(dx > 0 ? 1 : -1);   // swipe right = next page
+      });
+      $('back-place').addEventListener('click', async () => { const p = homePage(); if (p) { await renderPage(p, true); updateCurrent(); } syncBack(); });
+      document.addEventListener('ql:script', async () => { if (flat.length && shownPage) { await renderPage(shownPage, false); updateCurrent(); } });
+      setInterval(syncBack, 800);
+    }
 
     // ── listening ──────────────────────────────────────────────
     let rec = null, listening = false;

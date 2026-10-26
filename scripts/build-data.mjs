@@ -154,27 +154,29 @@ async function readMorphology() {
   return out;
 }
 
-// ── 5. Word by word (optional, Quran Foundation) ──────────────
-async function readWordByWord() {
+// ── 5. Quran Foundation (optional, needs QF_CLIENT_ID / QF_CLIENT_SECRET) ──
+async function qfSession() {
   const qf = cfg.quranFoundation;
   const id = process.env.QF_CLIENT_ID;
   const secret = process.env.QF_CLIENT_SECRET;
-  if (!qf?.enabled || !id || !secret) {
-    console.log('– Word by word skipped (QF_CLIENT_ID / QF_CLIENT_SECRET not set)');
-    return null;
-  }
+  if (!qf?.enabled || !id || !secret) return null;
+  const tokRes = await fetch(qf.tokenUrl, {
+    method: 'POST',
+    headers: {
+      Authorization: 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64'),
+      'Content-Type': 'application/x-www-form-urlencoded',
+    },
+    body: 'grant_type=client_credentials&scope=content',
+  });
+  if (!tokRes.ok) throw new Error(`token request failed: HTTP ${tokRes.status}`);
+  const { access_token } = await tokRes.json();
+  return { qf, headers: { 'x-auth-token': access_token, 'x-client-id': id } };
+}
+
+async function readWordByWord(session) {
+  if (!session) { console.log('– Word by word skipped (QF_CLIENT_ID / QF_CLIENT_SECRET not set)'); return null; }
+  const { qf, headers } = session;
   try {
-    const tokRes = await fetch(qf.tokenUrl, {
-      method: 'POST',
-      headers: {
-        Authorization: 'Basic ' + Buffer.from(`${id}:${secret}`).toString('base64'),
-        'Content-Type': 'application/x-www-form-urlencoded',
-      },
-      body: 'grant_type=client_credentials&scope=content',
-    });
-    if (!tokRes.ok) throw new Error(`token request failed: HTTP ${tokRes.status}`);
-    const { access_token } = await tokRes.json();
-    const headers = { 'x-auth-token': access_token, 'x-client-id': id };
     const all = {};
     for (let n = 1; n <= 114; n++) {
       const verses = {};
@@ -197,6 +199,74 @@ async function readWordByWord() {
     return all;
   } catch (e) {
     console.warn(`– Word by word skipped: ${e.message}`);
+    return null;
+  }
+}
+
+// Tajweed-coloured text, one HTML snippet per word. Only <span class="tj-…"> survives sanitising.
+export function tajweedWords(html) {
+  const src = html.replace(/<span class=["']?end["']?>[^<]*<\/span>/g, '').trim();
+  const words = [];
+  const open = [];          // tajweed classes currently open
+  let cur = '';
+  const reopen = () => open.map((c) => `<span class="tj-${c}">`).join('');
+  const close = () => '</span>'.repeat(open.length);
+  const flush = () => {
+    const w = cur + close();
+    const txt = w.replace(/<[^>]+>/g, '');
+    // pause marks stay with the word before them, as in tokenize()
+    if (!/[\u0621-\u063A\u0641-\u064A\u0671]/.test(txt)) { if (txt.trim() && words.length) words[words.length - 1] += ' ' + w; }
+    else words.push(w);
+    cur = reopen();
+  };
+  for (const part of src.split(/(<[^>]+>)/)) {
+    if (!part) continue;
+    if (part.startsWith('<')) {
+      const m = /^<tajweed\s+class=["']?([a-z_]+)["']?\s*>$/i.exec(part);
+      if (m) { const c = m[1].toLowerCase(); open.push(c); cur += `<span class="tj-${c}">`; }
+      else if (/^<\/tajweed>$/i.test(part) && open.length) { open.pop(); cur += '</span>'; }
+      continue;   // any other tag is dropped
+    }
+    part.replace(/[<>&"]/g, '').split(' ').forEach((txt, k) => { if (k > 0) flush(); cur += txt; });
+  }
+  flush();
+  return words;
+}
+
+async function readTajweed(session, tanzil) {
+  if (!session) { console.log('– Tajweed text skipped (QF_CLIENT_ID / QF_CLIENT_SECRET not set)'); return null; }
+  const { qf, headers } = session;
+  const all = {};
+  let ok = 0, bad = 0;
+  try {
+    for (const s of tanzil) {
+      let verses;
+      try {
+        const j = await getJson(`${qf.apiBase}/quran/verses/uthmani_tajweed?chapter_number=${s.n}`, `tj-${pad(s.n)}.json`, { headers });
+        verses = j.verses.map((v) => [Number(String(v.verse_key).split(':')[1]), v.text_uthmani_tajweed]);
+      } catch {
+        verses = [];
+        let page = 1, totalPages = 1;
+        do {
+          const j = await getJson(`${qf.apiBase}/verses/by_chapter/${s.n}?per_page=50&page=${page}&fields=text_uthmani_tajweed`, `tjv-${pad(s.n)}-${page}.json`, { headers });
+          for (const v of j.verses) verses.push([v.verse_number, v.text_uthmani_tajweed]);
+          totalPages = j.pagination?.total_pages ?? 1;
+          page++;
+        } while (page <= totalPages);
+      }
+      const out = {};
+      for (const [a, html] of verses) {
+        if (!html) continue;
+        const words = tajweedWords(html);
+        const expected = tokenize(s.ayahs[a - 1].ar, `${s.n}:${a}`).length;
+        if (words.length === expected) { out[a] = words; ok++; } else bad++;
+      }
+      all[s.n] = out;
+    }
+    console.log(`✓ Tajweed text: ${ok} ayahs${bad ? `, ${bad} skipped (word count did not match the layout)` : ''}`);
+    return ok ? all : null;
+  } catch (e) {
+    console.warn(`– Tajweed text skipped: ${e.message}`);
     return null;
   }
 }
@@ -235,7 +305,10 @@ async function main() {
   const trs = {};
   for (const t of cfg.translations) trs[t.id] = await readTranslation(t.id);
   const morph = await readMorphology();
-  const wbw = await readWordByWord();
+  let session = null;
+  try { session = await qfSession(); } catch (e) { console.warn(`– Quran Foundation sign-in failed: ${e.message}`); }
+  const wbw = await readWordByWord(session);
+  const tajweed = await readTajweed(session, tanzil);
   const layout = await readLayout(tanzil);
   const juzPage = trs[cfg.defaultTranslation].juzPage;
   // the QUL layout decides which page every ayah is on
@@ -259,7 +332,7 @@ async function main() {
 
   await writeJson('meta.json', {
     surahs: surahIndex, pages: pageStarts, juzs: juzStarts,
-    translations: cfg.translations, wbw: !!wbw, _copyright: TANZIL_NOTICE,
+    translations: cfg.translations, wbw: !!wbw, tajweed: !!tajweed, _copyright: TANZIL_NOTICE,
   });
 
   const search = [];
@@ -279,6 +352,7 @@ async function main() {
     await writeJson(`surah/${pad(s.n)}.json`, { ...info, bismillah: s.bismillah, ayahs, _copyright: TANZIL_NOTICE });
     await writeJson(`morph/${pad(s.n)}.json`, { ...morph[s.n], _copyright: CORPUS_NOTICE });
     if (wbw) await writeJson(`wbw/${pad(s.n)}.json`, wbw[s.n]);
+    if (tajweed) await writeJson(`tajweed/${pad(s.n)}.json`, tajweed[s.n] ?? {});
   }
   await writeJson('search.json', search);
   for (const [p, lines] of layout.pages) {
@@ -298,7 +372,7 @@ async function main() {
   console.log(`✓ Wrote public/data/`);
 }
 
-main().catch((e) => {
+if (process.argv[1] && fileURLToPath(import.meta.url) === path.resolve(process.argv[1])) main().catch((e) => {
   console.error('✗ Data build failed:', e.message);
   process.exit(1);
 });

@@ -6,15 +6,27 @@ const AR = '٠١٢٣٤٥٦٧٨٩';
 export const arNum = (n) => String(n).replace(/\d/g, (d) => AR[d]);
 const el = (tag, cls, text) => { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; };
 
-// opts: { getJson, pad, items: Map("s:a" → item), wordSpan(word) → span, markerSpan(item, ayah) → span }
+// opts: { getJson, pad, items: Map("s:a" → item), wordSpan(word) → span, markerSpan(item, ayah) → span,
+//         script: 'plain' | 'tajweed' }
 // Items are the ayahs being recited (key "s:0" is a Bismillah). Everything else on the page is shown as "out".
 export async function buildPaper(p, opts) {
-  const { getJson, pad, items = new Map(), wordSpan, markerSpan } = opts;
+  const { getJson, pad, items = new Map(), wordSpan, markerSpan, script = 'plain' } = opts;
   const layout = await getJson(`layout/${pad(p)}.json`);
   const nums = new Set();
   for (const l of layout.lines) { if (l.t === 'a') for (const w of l.w) nums.add(w[0]); else nums.add(l.s); }
   const suras = new Map();
   await Promise.all([...nums].map(async (s) => suras.set(s, await getJson(`surah/${pad(s)}.json`))));
+  // tajweed colours, one HTML snippet per word (built from Quran Foundation data)
+  const tj = new Map();
+  if (script === 'tajweed') {
+    await Promise.all([...nums].map(async (s) => { try { tj.set(s, await getJson(`tajweed/${pad(s)}.json`)); } catch {} }));
+  }
+  const paint = (span, s, a, wi) => {
+    span.dataset.k = `${s}:${a}`;
+    const h = tj.get(s)?.[a]?.[wi];
+    if (h) { span.innerHTML = h; span.classList.add('tj'); }
+    return span;
+  };
   const toks = new Map();
   const outWords = (s, a) => {
     const k = `${s}:${a}`;
@@ -44,9 +56,13 @@ export async function buildPaper(p, opts) {
     l.w.forEach(([s, a, wi], k) => {
       if (k) line.append(' ');
       const it = items.get(`${s}:${a}`);
-      if (wi === -1) line.append(it && markerSpan ? markerSpan(it, a) : el('span', 'mk' + (items.size ? ' out' : ''), `﴿${arNum(a)}﴾`));
-      else if (it && wordSpan) line.append(wordSpan(it.words[wi]));
-      else line.append(el('span', items.size ? 'out' : '', outWords(s, a)[wi].display));
+      if (wi === -1) {
+        const mk = it && markerSpan ? markerSpan(it, a) : el('span', 'mk' + (items.size ? ' out' : ''), `﴿${arNum(a)}﴾`);
+        mk.dataset.k = `${s}:${a}`;
+        line.append(mk);
+      }
+      else if (it && wordSpan) line.append(paint(wordSpan(it.words[wi]), s, a, wi));
+      else line.append(paint(el('span', items.size ? 'out' : '', outWords(s, a)[wi].display), s, a, wi));
     });
     box.append(line);
   }
