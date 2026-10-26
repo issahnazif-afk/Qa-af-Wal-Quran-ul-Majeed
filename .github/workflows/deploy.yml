@@ -3,6 +3,8 @@ name: Build and deploy
 on:
   push:
     branches: [main]
+  schedule:
+    - cron: '0 3 1 * *'
   workflow_dispatch:
 
 permissions:
@@ -18,16 +20,11 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
-      - name: Unpack the project zip
-        run: |
-          unzip -q Qa-af-Wal-Quran-ul-Majeed.zip -d _unzip
-          ROOT=$(dirname "$(find _unzip -name package.json -not -path '*/node_modules/*' | head -n 1)")
-          echo "Project folder found at: $ROOT"
-          cp -r "$ROOT"/. .
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
         with:
           node-version: 22
+          cache: npm
       - run: npm ci
       - name: Build data
         run: npm run data
