@@ -239,11 +239,12 @@ const meta = getMeta();
       <div class="main">
         <div class="card toolbar">
           <div class="tool-row">
-            <button class="btn" type="button" id="repeat">Hear the ayah again</button>
-            <button class="btn" type="button" id="help">Show next word</button>
-            <button class="btn" type="button" id="skip">Skip question</button>
-            <button class="btn btn-primary" type="button" id="next" hidden>Next question</button>
-            <button class="btn" type="button" id="end">End test</button>
+            <button class="btn mic" type="button" id="t-mic" aria-pressed="false" aria-label="Microphone"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mic-i"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg><span class="mic-t">Microphone</span></button>
+            <button class="btn" type="button" id="repeat"><span class="lab-long">Hear the ayah again</span><span class="lab-short">Hear again</span></button>
+            <button class="btn" type="button" id="help"><span class="lab-long">Show next word</span><span class="lab-short">Next word</span></button>
+            <button class="btn" type="button" id="skip"><span class="lab-long">Skip question</span><span class="lab-short">Skip</span></button>
+            <button class="btn btn-primary" type="button" id="next" hidden><span class="lab-long">Next question</span><span class="lab-short">Next</span></button>
+            <button class="btn" type="button" id="end"><span class="lab-long">End test</span><span class="lab-short">End</span></button>
           </div>
           <p class="status" id="status" aria-live="polite"></p>
           <button class="btn" type="button" id="back-place" hidden style="align-self:center">Back to my place</button>
@@ -704,7 +705,13 @@ const meta = getMeta();
 
     // Did another of the speech engine's guesses hear the right word?
 
+    let lastPos = '';
     function updateCurrent() {
+      const cw = flat[pos];
+      if (cw && `${cw.item.s}:${cw.item.a}` !== lastPos) {
+        lastPos = `${cw.item.s}:${cw.item.a}`;
+        document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s: cw.item.s, a: cw.item.a || 1 } }));
+      }
       document.querySelectorAll('.hifz .w.current').forEach((x) => x.classList.remove('current'));
       const w = flat[pos];
       if (!w || phase !== 'answer') return;
@@ -932,11 +939,16 @@ const meta = getMeta();
         }
       };
       rec.onend = () => { if (listening && me === rec) { follower.reset(); try { rec.start(); } catch {} } };
-      try { rec.start(); listening = true; } catch { status('Could not start the microphone. Reload the page and try again.', 'bad'); }
+      try { rec.start(); listening = true; $('t-mic').setAttribute('aria-pressed', 'true'); } catch { status('Could not start the microphone. Reload the page and try again.', 'bad'); }
     }
     function stopListening() {
       listening = false;
       try { rec?.stop(); } catch {}
+      $('t-mic')?.setAttribute('aria-pressed', 'false');
     }
+    $('t-mic').addEventListener('click', () => {
+      if (listening) { stopListening(); status('Microphone paused. Tap it to carry on.'); }
+      else if (phase === 'answer') { startListening(); status('Listening. Carry on.'); }
+    });
   </script>
 </Base>

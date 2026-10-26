@@ -1,0 +1,163 @@
+---
+import Base from '../../layouts/Base.astro';
+import cfg from '../../../site.config.mjs';
+import { u } from '../../lib/url.mjs';
+const sections = [
+  { key: 'mushaf', ar: 'المصحف', en: 'Mushaf' },
+  { key: 'listen', ar: 'الاستماع', en: 'Listen' },
+  { key: 'recite', ar: 'التلاوة', en: 'Recite' },
+  { key: 'hifz', ar: 'اختبار الحفظ', en: 'Hifz test' },
+];
+---
+<Base title="Home" app>
+  <style is:global>
+    html[data-app] .appbar { display: none; }
+    html[data-app] body:has(.home-app) { background: #0E3B31; padding-bottom: 0 !important; }
+    .home-app { min-height: 100vh; min-height: 100dvh; box-sizing: border-box; background: #0E3B31; color: #F4ECD8; display: flex; flex-direction: column; align-items: center; padding: calc(14px + env(safe-area-inset-top, 0px)) 0 calc(24px + env(safe-area-inset-bottom, 0px)); overflow: hidden; position: relative; }
+    .home-app .pattern { position: absolute; inset: 0; opacity: .07; pointer-events: none; }
+    .home-app .top { width: 100%; max-width: 520px; display: flex; justify-content: flex-end; padding: 0 12px; box-sizing: border-box; position: relative; }
+    .home-app .top a { width: 44px; height: 44px; display: grid; place-items: center; color: #E2C27A; border-radius: 12px; }
+    .home-app .title { font-family: var(--font-quran); font-size: clamp(30px, 9vw, 42px); line-height: 1.7; color: #E2C27A; position: relative; }
+    .home-app .sub { font-size: 13px; letter-spacing: 2px; text-transform: uppercase; color: #CDBF9C; position: relative; }
+    .home-app .stage { position: relative; width: 100%; max-width: 520px; height: 270px; margin-top: 22px; touch-action: pan-y; user-select: none; }
+    .home-app .cover { position: absolute; left: 50%; top: 10px; width: 168px; height: 228px; margin-left: -84px; transition: transform .32s cubic-bezier(.2,.7,.2,1), opacity .32s; cursor: pointer; border: none; padding: 0; background: none; }
+    .home-app .stage.dragging .cover { transition: none; }
+    .home-app .cover svg { width: 100%; height: 100%; display: block; filter: drop-shadow(0 14px 18px rgba(0,0,0,.4)); }
+    .home-app .label { display: flex; flex-direction: column; align-items: center; gap: 2px; position: relative; }
+    .home-app .label .ar { font-family: var(--font-ar-ui); font-weight: 600; font-size: 24px; color: #E2C27A; }
+    .home-app .label .en { font-size: 15px; }
+    .home-app .label small { font-size: 12px; color: #B9C9BF; }
+    .home-app .dots { display: flex; gap: 2px; margin-top: 6px; position: relative; }
+    .home-app .dots button { width: 28px; height: 28px; border: none; background: transparent; display: grid; place-items: center; cursor: pointer; }
+    .home-app .dots span { display: block; height: 8px; width: 8px; border-radius: 4px; background: rgba(226,194,122,.35); transition: width .2s; }
+    .home-app .dots button[aria-current="true"] span { width: 22px; background: #E2C27A; }
+    .home-app .grid { margin-top: auto; padding: 24px 22px 0; width: 100%; max-width: 460px; box-sizing: border-box; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 18px 10px; position: relative; }
+    .home-app .grid a { display: flex; flex-direction: column; align-items: center; gap: 8px; text-decoration: none; color: #F4ECD8; font-size: 13px; }
+    .home-app .grid a span { width: 62px; height: 62px; border-radius: 50%; background: #0A2E26; border: 1px solid rgba(226,194,122,.35); display: grid; place-items: center; color: #E2C27A; }
+  </style>
+
+  <div class="home-app">
+    <svg class="pattern" aria-hidden="true" width="100%" height="100%">
+      <defs><pattern id="star" width="78" height="78" patternUnits="userSpaceOnUse">
+        <rect x="19" y="19" width="40" height="40" fill="none" stroke="#E2C27A" stroke-width="1.5"></rect>
+        <rect x="19" y="19" width="40" height="40" fill="none" stroke="#E2C27A" stroke-width="1.5" transform="rotate(45 39 39)"></rect>
+      </pattern></defs>
+      <rect width="100%" height="100%" fill="url(#star)"></rect>
+    </svg>
+    <div class="top"><a href={u('about/')} aria-label="About and sources"><svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="9"></circle><path d="M12 11v6M12 7.5v.5"></path></svg></a></div>
+    <div class="title" lang="ar" dir="rtl">قٓۚ وَٱلۡقُرۡءَانِ ٱلۡمَجِيدِ</div>
+    <div class="sub">{cfg.appName === 'Quran Library' ? 'Qāf wal-Qurʾān al-Majīd' : cfg.appName}</div>
+
+    <div class="stage" id="stage" aria-roledescription="carousel" aria-label="Sections">
+      {sections.map((x, i) => (
+        <button type="button" class="cover" data-i={i} aria-label={`Open ${x.en}`}>
+          <svg viewBox="0 0 168 228" aria-hidden="true">
+            <rect x="0.5" y="0.5" width="167" height="227" rx="8" fill="#0B3329" stroke="#3E6A57"></rect>
+            <rect x="0.5" y="0.5" width="9" height="227" rx="4" fill="#082820"></rect>
+            <rect x="16" y="10" width="142" height="208" rx="4" fill="none" stroke="#C9A65A" stroke-width="1.5"></rect>
+            <rect x="21" y="15" width="132" height="198" rx="3" fill="none" stroke="rgba(201,166,90,.55)"></rect>
+            <g transform="translate(87 114)">
+              <rect x="-38" y="-38" width="76" height="76" fill="#0E3B31" stroke="#D4B062" stroke-width="2"></rect>
+              <rect x="-38" y="-38" width="76" height="76" fill="#0E3B31" stroke="#D4B062" stroke-width="2" transform="rotate(45)"></rect>
+              <circle r="31" fill="#0B3329" stroke="#D4B062" stroke-width="1.5"></circle>
+              <g transform="translate(-15 -15) scale(1.25)" fill="none" stroke="#E2C27A" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+                {x.key === 'mushaf' && <><path d="M2 5c3-1 6-1 10 1 4-2 7-2 10-1v14c-3-1-6-1-10 1-4-2-7-2-10-1z"></path><path d="M12 6v14"></path></>}
+                {x.key === 'listen' && <><path d="M4 15v-3a8 8 0 0 1 16 0v3"></path><rect x="3" y="14" width="4" height="6" rx="1.5"></rect><rect x="17" y="14" width="4" height="6" rx="1.5"></rect></>}
+                {x.key === 'recite' && <><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3M8 21h8"></path></>}
+                {x.key === 'hifz' && <><circle cx="12" cy="9" r="6"></circle><path d="M9 14.5 7 22l5-3 5 3-2-7.5"></path><path d="m9.5 9 1.8 1.8L14.8 7.3"></path></>}
+              </g>
+            </g>
+          </svg>
+        </button>
+      ))}
+    </div>
+
+    <div class="label" aria-live="polite">
+      <span class="ar" lang="ar" dir="rtl" id="lab-ar">{sections[0].ar}</span>
+      <span class="en" id="lab-en">{sections[0].en}</span>
+      <small>Swipe to choose · tap to open</small>
+    </div>
+    <div class="dots" id="dots">
+      {sections.map((x, i) => <button type="button" data-i={i} aria-label={`Show ${x.en}`} aria-current={i === 0 ? 'true' : 'false'}><span></span></button>)}
+    </div>
+
+    <nav class="grid" aria-label="More">
+      <a href="#" id="go-continue"><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M6 3h12v18l-6-4-6 4z"></path></svg></span>Continue</a>
+      <a href={u('search/')}><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg></span>Search</a>
+      <a href={u('saved/')}><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M12 21s-7-4.4-7-10a4 4 0 0 1 7-2.6A4 4 0 0 1 19 11c0 5.6-7 10-7 10z"></path></svg></span>Saved</a>
+      <a href={u('surah/1/')}><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"><path d="M4 5a2 2 0 0 1 2-2h13v16H6a2 2 0 0 0-2 2z"></path><path d="M8 7h7M8 11h5"></path></svg></span>Translation</a>
+      <a href={u('resources/')}><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"></path></svg></span>Resources</a>
+      <a href={u('?app=0')}><span><svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"></circle><path d="M3 12h18M12 3a14 14 0 0 1 0 18M12 3a14 14 0 0 0 0 18"></path></svg></span>Website</a>
+    </nav>
+  </div>
+
+  <script>
+    import { lastRead, getJson, pad } from '../../lib/client.mjs';
+    import { u } from '../../lib/url.mjs';
+    const names = [['المصحف', 'Mushaf'], ['الاستماع', 'Listen'], ['التلاوة', 'Recite'], ['اختبار الحفظ', 'Hifz test']];
+    const stage = document.getElementById('stage');
+    const covers = [...stage.querySelectorAll('.cover')];
+    const dots = [...document.querySelectorAll('#dots button')];
+    const n = covers.length;
+    let idx = Number(sessionStorage.getItem('ql-home-idx') || 0) % n;
+    let dx = 0;
+
+    function layout() {
+      const step = Math.min(150, stage.clientWidth * 0.38);
+      covers.forEach((c, i) => {
+        let d = ((i - idx) % n + n) % n;
+        if (d > n / 2) d -= n;                       // -1, 0, 1 (and 2 hidden behind)
+        const x = d * step + dx;
+        const sc = d === 0 ? 1 : 0.72;
+        c.style.transform = `translateX(${x}px) scale(${sc})`;
+        c.style.opacity = Math.abs(d) > 1 ? '0' : d === 0 ? '1' : '.55';
+        c.style.zIndex = String(10 - Math.abs(d));
+        c.tabIndex = d === 0 ? 0 : -1;
+      });
+      dots.forEach((b, i) => b.setAttribute('aria-current', String(i === idx)));
+      document.getElementById('lab-ar').textContent = names[idx][0];
+      document.getElementById('lab-en').textContent = names[idx][1];
+      sessionStorage.setItem('ql-home-idx', String(idx));
+    }
+    const go = (i) => { idx = ((i % n) + n) % n; dx = 0; layout(); };
+
+    // where each section opens: your last place
+    async function target(i) {
+      const lr = lastRead.get() ?? { s: 1, a: 1 };
+      const sura = await getJson(`surah/${pad(lr.s)}.json`).catch(() => null);
+      const page = sura?.ayahs[lr.a - 1]?.page ?? 1;
+      return [
+        u(`page/${page}/?app=1&k=${lr.s}:${lr.a}`),
+        u(`page/${page}/?app=1&listen=1&k=${lr.s}:${lr.a}`),
+        u(`practice/?app=1`),
+        u(`test/?app=1`),
+      ][i];
+    }
+    covers.forEach((c, i) => c.addEventListener('click', async () => {
+      if (moved) return;
+      if (i !== idx) { go(i); return; }
+      location.href = await target(i);
+    }));
+    dots.forEach((b, i) => b.addEventListener('click', () => go(i)));
+    document.getElementById('go-continue').addEventListener('click', async (e) => { e.preventDefault(); location.href = await target(0); });
+
+    // swipe: the covers follow your finger
+    let sx = null, moved = false;
+    stage.addEventListener('pointerdown', (e) => { sx = e.clientX; moved = false; stage.classList.add('dragging'); });
+    addEventListener('pointermove', (e) => { if (sx === null) return; dx = e.clientX - sx; if (Math.abs(dx) > 8) moved = true; layout(); });
+    addEventListener('pointerup', () => {
+      if (sx === null) return;
+      stage.classList.remove('dragging');
+      const d = dx; sx = null;
+      if (d < -50) go(idx + 1); else if (d > 50) go(idx - 1); else { dx = 0; layout(); }
+      setTimeout(() => { moved = false; }, 0);
+    });
+    addEventListener('keydown', (e) => {
+      if (e.target.closest('input, select, textarea')) return;
+      if (e.key === 'ArrowRight') go(idx + 1);
+      if (e.key === 'ArrowLeft') go(idx - 1);
+    });
+    addEventListener('resize', layout);
+    layout();
+  </script>
+</Base>

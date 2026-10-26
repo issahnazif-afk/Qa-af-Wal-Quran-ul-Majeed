@@ -166,3 +166,62 @@ body.has-qbar.has-player { padding-bottom: calc(var(--qbar-h) + 84px + env(safe-
 .mp .mp-flow { font-size: var(--mfs); line-height: 2.15; text-align: justify; text-align-last: center; direction: rtl; }
 .mp.mp-flowpage .mp-lines { justify-content: flex-start; gap: .3em; }
 .mp .mk { font-family: 'KFGQPC Hafs', var(--font-quran); }
+
+/* ── app mode: the phone app's focus views ───────────────────── */
+.appbar { display: none; }
+html[data-app] .site-header, html[data-app] .site-footer { display: none; }
+html[data-app] body { background: var(--paper); }
+html[data-app] .appbar { display: flex; position: sticky; top: 0; z-index: 30; align-items: center; gap: 6px; padding: calc(8px + env(safe-area-inset-top, 0px)) 8px 8px; background: #F4F0E6; border-bottom: 1px solid #E3DCCB; color: #1B1A17; }
+html[data-app][data-theme="dark"] .appbar { background: #17211D; border-color: var(--line); color: var(--ink); }
+.appbar .ab-btn { width: 44px; height: 44px; flex: none; border: none; background: transparent; color: inherit; display: grid; place-items: center; border-radius: 10px; cursor: pointer; }
+.appbar .ab-card { flex: 1 1 auto; min-width: 0; display: flex; align-items: center; gap: 4px; background: #E9E3D4; border: 1px solid #DCD3BF; border-radius: 10px; padding: 4px 4px 4px 12px; }
+html[data-app][data-theme="dark"] .appbar .ab-card { background: var(--surface); border-color: var(--line); }
+.appbar .ab-text { flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; line-height: 1.25; }
+.appbar .ab-text b { font-size: 15px; }
+.appbar .ab-text span { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.appbar .ab-mark { width: 40px; color: #A39C8B; }
+.appbar .ab-mark[aria-pressed="true"] { color: var(--accent); }
+/* the Quran menu becomes a sheet that the ☰ button opens */
+html[data-app] body.has-qbar { --qbar-h: 0px; }
+html[data-app] .qbar { transform: translateY(105%); transition: transform .25s ease; border-radius: 18px 18px 0 0; box-shadow: 0 -8px 24px rgba(0,0,0,.18); z-index: 45; }
+html[data-app].sheet-open .qbar { transform: none; }
+html[data-app] .qbar .qbar-row { flex-wrap: wrap; overflow: visible; padding: 16px 16px 20px; gap: 12px; }
+html[data-app] .qbar .qbar-sep { display: none; }
+html[data-app] .qbar label { flex: 1 1 140px; }
+html[data-app] .qbar select, html[data-app] .qbar input { height: 44px; width: 100%; box-sizing: border-box; }
+/* bottom dock: pills and the big round button */
+.app-dock { display: none; }
+html[data-app] .app-dock { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; gap: 10px; position: fixed; left: 0; right: 0; bottom: 0; z-index: 32; padding: 10px 14px calc(18px + env(safe-area-inset-bottom, 0px)); background: #F4F0E6; border-top: 1px solid #E3DCCB; }
+html[data-app][data-theme="dark"] .app-dock { background: #17211D; border-color: var(--line); }
+.app-dock .dock-l, .app-dock .dock-r { display: flex; align-items: center; gap: 8px; }
+.app-dock .dock-r { justify-content: flex-end; }
+.app-dock .pill { height: 46px; padding: 0 16px; border: none; border-radius: 23px; background: #FFFFFF; box-shadow: 0 2px 8px rgba(0,0,0,.12); font: inherit; font-size: 14px; font-weight: 600; color: #1B1A17; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; }
+.app-dock .pill[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
+.app-dock .fab { width: 70px; height: 70px; border: none; border-radius: 50%; background: #0E3B31; color: #E2C27A; display: grid; place-items: center; box-shadow: 0 6px 18px rgba(0,0,0,.22); cursor: pointer; }
+html[data-app] .player { display: none !important; }
+html[data-app] body { padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important; }
+
+/* Recite and Hifz in app mode: the controls sit at the bottom, the microphone in the middle */
+html[data-app] body:has(.practice) { padding-bottom: calc(210px + env(safe-area-inset-bottom, 0px)) !important; }
+html[data-app] .practice #intro, html[data-app] .practice .note { display: none; }
+html[data-app] .practice.page { padding-top: 8px; }
+html[data-app] .practice .toolbar { position: fixed; top: auto; bottom: 0; left: 0; right: 0; z-index: 32; border-radius: 18px 18px 0 0; border: none; border-top: 1px solid #E3DCCB; background: #F4F0E6; padding: 10px 12px calc(14px + env(safe-area-inset-bottom, 0px)); box-shadow: 0 -4px 16px rgba(0,0,0,.08); }
+html[data-app] .practice .tool-row { flex-wrap: nowrap; justify-content: center; gap: 6px; overflow-x: auto; }
+html[data-app] .practice .tool-row .btn { min-height: 44px; padding: 0 12px; font-size: 13px; border-radius: 22px; background: #FFFFFF; box-shadow: 0 2px 6px rgba(0,0,0,.1); border: none; flex: none; }
+html[data-app] .practice .mic { order: 2; width: 70px; height: 70px; min-width: 0 !important; padding: 0 !important; border-radius: 50% !important; background: #0E3B31 !important; color: #E2C27A !important; flex: none; }
+html[data-app] .practice .mic[aria-pressed="true"] { background: #3FBF7F !important; color: #FFFFFF !important; box-shadow: 0 0 0 8px rgba(63,191,127,.18) !important; }
+html[data-app] .practice .mic .mic-t { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+html[data-app] .practice #hint, html[data-app] .practice #reveal, html[data-app] .practice #repeat, html[data-app] .practice #help { order: 1; }
+html[data-app] .practice #listen, html[data-app] .practice #restart, html[data-app] .practice #finish, html[data-app] .practice #skip, html[data-app] .practice #next, html[data-app] .practice #end { order: 3; }
+.practice .mic .mic-i { display: none; }
+html[data-app] .practice .mic .mic-i { display: block; }
+html[data-app] .practice .status { font-size: 14px; }
+
+.lab-short { display: none; }
+html[data-app] .lab-long { display: none; }
+html[data-app] .lab-short { display: inline; }
+/* Hifz: the Sheikh's words may include Quran text, so use the Quran font there */
+.hifz .bubble .ar { font-family: var(--font-quran), var(--font-ar-ui); }
+html[data-app] .hifz .examiner { padding: 10px 12px; gap: 10px; }
+html[data-app] .hifz .examiner .sheikh { max-width: 84px; }
+html[data-app] .hifz .bubble { padding: 8px 10px; }

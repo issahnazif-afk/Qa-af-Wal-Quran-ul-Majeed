@@ -62,6 +62,10 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       .mushaf-v2 .spread { padding: 10px 6px 18px; }
       .mushaf-v2 .paper { padding: 14px 10px 10px; }
     }
+    html[data-app] .mushaf-v2 .bar, html[data-app] .mushaf-v2 .hintline { display: none; }
+    html[data-app] .mushaf-v2 .spread { padding: 8px 6px 12px; }
+    html[data-app] .mushaf-v2 .paper { border-radius: 4px; box-shadow: none; }
+    .mushaf-v2 .trbox { position: fixed; left: 10px; right: 10px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); z-index: 31; padding: 12px 14px; font-size: 15px; line-height: 1.55; max-height: 30vh; overflow-y: auto; }
     body.focus .site-header, body.focus .site-footer, body.focus .mushaf-v2 .bar, body.focus .mushaf-v2 .hintline { display: none; }
     body.focus .mushaf-v2 .spread { min-height: 100vh; align-items: center; padding: 8px; }
     body.focus .mushaf-v2 .paper { max-height: calc(100vh - 16px); }
@@ -137,6 +141,19 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     <button class="btn exit-focus" type="button" id="exit-focus">Exit focus</button>
   </div>
 
+  <div class="app-dock" id="dock" aria-label="Controls">
+    <div class="dock-l">
+      <button type="button" class="pill" id="dk-tj" aria-pressed="false">Tajweed</button>
+      <button type="button" class="pill" id="dk-tr" aria-pressed="false" hidden>Translation</button>
+    </div>
+    <button type="button" class="fab" id="dk-play" aria-label="Listen">
+      <svg data-i="play" width="28" height="28" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M7 4v16l13-8z"></path></svg>
+      <svg data-i="pause" hidden width="26" height="26" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M6 4h4v16H6zM14 4h4v16h-4z"></path></svg>
+    </button>
+    <div class="dock-r"><span class="muted" id="dk-hint" style="font-size:12px;text-align:right">Swipe right for the next page</span></div>
+  </div>
+  <section class="card trbox" id="dk-trbox" hidden aria-live="polite"><b id="dk-trkey" style="font-size:13px;color:var(--accent-strong)"></b><p id="dk-trtext" style="margin:4px 0 0"></p></section>
+
   <Player />
   <QuranBar mode="mushaf" s={here.ayahs[0][0]} a={here.ayahs[0][1]} />
 
@@ -209,7 +226,10 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     async function afterRender() {
       document.getElementById('pg').value = String(n);
       document.title = document.title.replace(/page \d+/, `page ${n}`);
-      if (location.pathname !== u(`page/${n}/`)) history.replaceState(null, '', u(`page/${n}/`) + location.search.replace(/[?&]k=[^&]*/, ''));
+      if (location.pathname !== u(`page/${n}/`)) {
+        const q = new URLSearchParams(location.search); q.delete('k');
+        history.replaceState(null, '', u(`page/${n}/`) + (q.toString() ? `?${q}` : ''));
+      }
       const first = box.querySelector('.paper:not(.partner) [data-k]') ?? box.querySelector('[data-k]');
       if (first) {
         const [s, a] = first.dataset.k.split(':').map(Number);
@@ -321,6 +341,64 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
     document.getElementById('info-play').addEventListener('click', async () => { if (!selKey) return; player.setQueue(await visibleQueue()); player.playAt(selKey); });
     document.addEventListener('ql:ayah', (e) => mark('playing', e.detail.key));
 
+    // ── app dock: Tajweed, Translation (Listen only), and one big play button ──
+    const listenMode = new URLSearchParams(location.search).get('listen') === '1';
+    const dkTj = document.getElementById('dk-tj');
+    const dkTr = document.getElementById('dk-tr');
+    const dkPlay = document.getElementById('dk-play');
+    const trBox = document.getElementById('dk-trbox');
+    const scriptSel = document.getElementById('qb-script');
+    const tjOk = () => !scriptSel.querySelector('option[value="tajweed"]').disabled;
+    const syncTj = () => { dkTj.hidden = !tjOk(); dkTj.setAttribute('aria-pressed', String(scriptSel.value === 'tajweed')); };
+    dkTj.addEventListener('click', () => {
+      scriptSel.value = scriptSel.value === 'tajweed' ? 'plain' : 'tajweed';
+      scriptSel.dispatchEvent(new Event('change'));
+      syncTj();
+    });
+    document.addEventListener('ql:riwayah', syncTj);
+    syncTj();
+    dkTr.hidden = !listenMode;
+    const trOn = () => dkTr.getAttribute('aria-pressed') === 'true';
+    dkTr.addEventListener('click', () => { dkTr.setAttribute('aria-pressed', String(!trOn())); if (!trOn()) trBox.hidden = true; });
+    if (listenMode) document.getElementById('dk-hint').textContent = 'The page follows the reciter';
+
+    const pBtn = document.querySelector('#player [data-p="play"]');
+    let started = false;
+    new MutationObserver(() => {
+      const playing = pBtn.getAttribute('aria-label') === 'Pause';
+      dkPlay.querySelector('[data-i="play"]').hidden = playing;
+      dkPlay.querySelector('[data-i="pause"]').hidden = !playing;
+      dkPlay.setAttribute('aria-label', playing ? 'Pause' : 'Listen');
+    }).observe(pBtn, { attributes: true, attributeFilter: ['aria-label'] });
+    async function listenQueue() {
+      // Listen: from the first ayah on this page to the end of the surah, turning pages as it goes
+      const first = box.querySelector('.paper:not(.partner) .mk[data-k]') ?? box.querySelector('.mk[data-k]');
+      const [s, a] = (first?.dataset.k ?? '1:1').split(':').map(Number);
+      const firstOnPage = box.querySelector('.paper:not(.partner) [data-k]')?.dataset.k.split(':').map(Number) ?? [s, a];
+      const sura = await getJson(`surah/${pad(firstOnPage[0])}.json`);
+      return sura.ayahs.filter((x) => x.a >= firstOnPage[1]).map((x) => ({ s: firstOnPage[0], a: x.a, label: `${sura.en}, ${firstOnPage[0]}:${x.a}` }));
+    }
+    dkPlay.addEventListener('click', async () => {
+      if (started) { pBtn.click(); return; }
+      started = true;
+      player.setQueue(listenMode ? await listenQueue() : await visibleQueue());
+      player.playAll();
+    });
+    document.addEventListener('ql:ayah', async (e) => {
+      const key = e.detail.key;
+      if (!key) return;
+      const [s, a] = key.split(':').map(Number);
+      const sura = await getJson(`surah/${pad(s)}.json`);
+      const ay = sura.ayahs[a - 1];
+      if (listenMode && ay.page !== n && !(spreading() && rightOf(ay.page) === rightOf(n))) { await render(ay.page, ay.page > n ? 1 : -1); mark('playing', key); }
+      if (listenMode && trOn()) {
+        document.getElementById('dk-trkey').textContent = `${sura.en} ${key}`;
+        document.getElementById('dk-trtext').textContent = Object.values(ay.tr)[0] ?? '';
+        trBox.hidden = false;
+      }
+      document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s, a } }));
+    });
+
     // ── start ─────────────────────────────────────────────────
     (async () => {
       const k = new URLSearchParams(location.search).get('k');
@@ -329,7 +407,12 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       spreadToggle.closest('label').hidden = !wide.matches;
       if (script() === 'tajweed' || riwayah() !== 'hafs' || spreading()) await render(n, 0);
       else { fitAll(); afterRender(); }
-      if (k) { select(k); box.querySelector(`[data-k="${k}"]`)?.scrollIntoView({ block: 'center' }); }
+      if (k) {
+        await select(k);
+        // in the app, opening at your place should not cover the page with a panel
+        if (document.documentElement.dataset.app === '1') { info.hidden = true; mark('sel', null); }
+        else box.querySelector(`[data-k="${k}"]`)?.scrollIntoView({ block: 'center' });
+      }
     })();
   </script>
 </Base>

@@ -76,15 +76,17 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
 
   async function open(mode, { s, a, max }) {
     lastRead.set({ s, a });
-    if (mode === 'listen') location.href = u(`surah/${s}/#a${a}`);
-    else if (mode === 'mushaf') {
+    const app = document.documentElement.dataset.app === '1';
+    if (mode === 'listen' && !app) location.href = u(`surah/${s}/#a${a}`);
+    else if (mode === 'mushaf' || mode === 'listen') {
       const sura = await getJson(`surah/${pad(s)}.json`);
-      location.href = u(`page/${sura.ayahs[a - 1].page}/?k=${s}:${a}`);
+      location.href = u(`page/${sura.ayahs[a - 1].page}/?k=${s}:${a}${mode === 'listen' ? '&listen=1' : ''}`);
     }
     else if (mode === 'recite') location.href = u(`practice/?s=${s}&from=${a}&to=${max}`);
     else if (mode === 'hifz') location.href = u(`test/?s=${s}`);
   }
 
+  if (here === 'mushaf' && new URLSearchParams(location.search).get('listen') === '1') modeSel.value = 'listen';
   modeSel.addEventListener('change', () => open(modeSel.value, pos()));
 
   // "Go": the current view moves in place if it can, otherwise it opens there

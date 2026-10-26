@@ -1,0 +1,53 @@
+---
+// Top bar of the app's focus views (shown only in app mode): menu, where you are, search, home.
+import { u } from '../lib/url.mjs';
+---
+<div class="appbar" id="appbar" aria-label="App bar">
+  <button type="button" class="ab-btn" id="ab-menu" aria-label="Menu" aria-expanded="false">
+    <svg aria-hidden="true" width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"></path></svg>
+  </button>
+  <div class="ab-card">
+    <div class="ab-text"><b id="ab-title">Quran</b><span id="ab-sub"></span></div>
+    <button type="button" class="ab-btn ab-mark" id="ab-mark" aria-label="Bookmark this place" aria-pressed="false">
+      <svg aria-hidden="true" width="22" height="22" viewBox="0 0 24 24" fill="currentColor"><path d="M6 3h12v18l-6-4-6 4z"></path></svg>
+    </button>
+  </div>
+  <a class="ab-btn" href={u('search/')} aria-label="Search">
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="11" cy="11" r="7"></circle><path d="M20 20l-4-4"></path></svg>
+  </a>
+  <a class="ab-btn" href={u('app/')} aria-label="Home">
+    <svg aria-hidden="true" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11 12 4l9 7"></path><path d="M5 10v10h14V10"></path></svg>
+  </a>
+</div>
+<script>
+  import { getJson, pad, bookmarks } from '../lib/client.mjs';
+  const title = document.getElementById('ab-title');
+  const sub = document.getElementById('ab-sub');
+  const mark = document.getElementById('ab-mark');
+  let key = null;
+  document.addEventListener('ql:pos', async (e) => {
+    const { s, a } = e.detail;
+    key = `${s}:${a}`;
+    mark.setAttribute('aria-pressed', String(bookmarks.has(key)));
+    try {
+      const sura = await getJson(`surah/${pad(s)}.json`);
+      const ay = sura.ayahs[a - 1];
+      title.textContent = sura.en;
+      sub.textContent = `Page ${ay.page} | Juz ${ay.juz} | ${s}:${a}`;
+    } catch {}
+  });
+  mark.addEventListener('click', () => { if (key) mark.setAttribute('aria-pressed', String(bookmarks.toggle(key))); });
+  // the menu opens the Quran menu (view, surah and ayah, script, riwayah) as a sheet
+  const menuBtn = document.getElementById('ab-menu');
+  menuBtn.addEventListener('click', () => {
+    const open = !document.documentElement.classList.contains('sheet-open');
+    document.documentElement.classList.toggle('sheet-open', open);
+    menuBtn.setAttribute('aria-expanded', String(open));
+  });
+  document.addEventListener('click', (e) => {
+    if (!document.documentElement.classList.contains('sheet-open')) return;
+    if (e.target.closest('.qbar, #ab-menu')) return;
+    document.documentElement.classList.remove('sheet-open');
+    menuBtn.setAttribute('aria-expanded', 'false');
+  });
+</script>

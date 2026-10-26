@@ -159,12 +159,12 @@ const meta = getMeta();
     <div class="card toolbar" id="toolbar" hidden>
       <div class="progress" aria-hidden="true"><span id="bar"></span></div>
       <div class="tool-row">
-        <button class="btn btn-primary mic" type="button" id="mic" aria-pressed="false">Start reciting</button>
-        <button class="btn" type="button" id="hint">Hint</button>
-        <button class="btn" type="button" id="reveal">Show next word</button>
-        <button class="btn" type="button" id="listen">Listen</button>
-        <button class="btn" type="button" id="restart">Restart ayah</button>
-        <button class="btn" type="button" id="finish" hidden>Finish</button>
+        <button class="btn btn-primary mic" type="button" id="mic" aria-pressed="false" aria-label="Start reciting"><svg aria-hidden="true" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="mic-i"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg><span class="mic-t">Start reciting</span></button>
+        <button class="btn" type="button" id="hint"><span class="lab-long">Hint</span><span class="lab-short">Hint</span></button>
+        <button class="btn" type="button" id="reveal"><span class="lab-long">Show next word</span><span class="lab-short">Next word</span></button>
+        <button class="btn" type="button" id="listen"><span class="lab-long">Listen</span><span class="lab-short">Listen</span></button>
+        <button class="btn" type="button" id="restart"><span class="lab-long">Restart ayah</span><span class="lab-short">Restart</span></button>
+        <button class="btn" type="button" id="finish" hidden><span class="lab-long">Finish</span><span class="lab-short">Finish</span></button>
       </div>
       <p class="status" id="status" aria-live="polite"></p>
       <button class="btn" type="button" id="back-place" hidden style="align-self:center">Back to my place</button>
@@ -576,7 +576,13 @@ const meta = getMeta();
 
     // Did another of the speech engine's guesses hear the right word?
 
+    let lastPos = '';
     function updateCurrent() {
+      const cw = flat[pos];
+      if (cw && `${cw.item.s}:${cw.item.a}` !== lastPos) {
+        lastPos = `${cw.item.s}:${cw.item.a}`;
+        document.dispatchEvent(new CustomEvent('ql:pos', { detail: { s: cw.item.s, a: cw.item.a || 1 } }));
+      }
       document.querySelectorAll('.practice .w.current').forEach((x) => x.classList.remove('current'));
       $('bar').style.width = mode === 'surah' && flat.length ? `${(pos / flat.length) * 100}%` : '0';
       const w = flat[pos];
@@ -799,7 +805,8 @@ const meta = getMeta();
     }
     function setMic(on) {
       $('mic').setAttribute('aria-pressed', String(on));
-      $('mic').textContent = on ? 'Stop listening' : 'Start reciting';
+      $('mic').querySelector('.mic-t').textContent = on ? 'Stop listening' : 'Start reciting';
+      $('mic').setAttribute('aria-label', on ? 'Stop listening' : 'Start reciting');
     }
     $('mic').addEventListener('click', () => (listening ? stopListening() : startListening()));
 
