@@ -1,0 +1,3 @@
+* text=auto eol=lf
+# Keep the original datasets byte-for-byte identical
+sources/** -text
