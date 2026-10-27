@@ -1,0 +1,68 @@
+name: Android app
+
+# Builds the Android app from this site. Run it from Actions → "Android app" → Run workflow,
+# or push a tag such as v1.0.0. Download the result from the run's "Artifacts".
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  android:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: npm ci
+      - name: Build data
+        run: npm run data
+        env:
+          QF_CLIENT_ID: ${{ secrets.QF_CLIENT_ID }}
+          QF_CLIENT_SECRET: ${{ secrets.QF_CLIENT_SECRET }}
+      - name: Build the app's web content
+        run: npm run build:app:site
+      - name: Create the Android project
+        run: |
+          [ -d android ] || npx cap add android
+          npx capacitor-assets generate --android --iconBackgroundColor '#0E3B31' --splashBackgroundColor '#0E3B31' || echo "icon generation skipped"
+          npx cap sync android
+      - name: Set the version
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"; [[ "$VERSION" =~ ^[0-9]+\.[0-9]+ ]] || VERSION="0.1.${GITHUB_RUN_NUMBER}"
+          sed -i "s/versionCode [0-9]*/versionCode ${GITHUB_RUN_NUMBER}/; s/versionName \"[^\"]*\"/versionName \"${VERSION}\"/" android/app/build.gradle
+          grep -E "versionCode|versionName" android/app/build.gradle
+      - name: Build a test APK (install directly on a phone)
+        working-directory: android
+        run: ./gradlew assembleDebug
+      - uses: actions/upload-artifact@v4
+        with:
+          name: qaaf-android-test-apk
+          path: android/app/build/outputs/apk/debug/*.apk
+      - name: Build the signed release (for Google Play)
+        if: ${{ env.KEYSTORE_B64 != '' }}
+        working-directory: android
+        env:
+          KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
+        run: |
+          echo "$KEYSTORE_B64" | base64 -d > release.keystore
+          ./gradlew bundleRelease assembleRelease \
+            -Pandroid.injected.signing.store.file="$PWD/release.keystore" \
+            -Pandroid.injected.signing.store.password='${{ secrets.ANDROID_KEYSTORE_PASSWORD }}' \
+            -Pandroid.injected.signing.key.alias='${{ secrets.ANDROID_KEY_ALIAS }}' \
+            -Pandroid.injected.signing.key.password='${{ secrets.ANDROID_KEY_PASSWORD }}'
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.KEYSTORE_B64 != '' }}
+        with:
+          name: qaaf-android-release
+          path: |
+            android/app/build/outputs/bundle/release/*.aab
+            android/app/build/outputs/apk/release/*.apk
+    env:
+      KEYSTORE_B64: ${{ secrets.ANDROID_KEYSTORE_B64 }}
