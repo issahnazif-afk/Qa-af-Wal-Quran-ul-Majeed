@@ -1,0 +1,72 @@
+name: iOS app
+
+# Builds the iOS app on GitHub's free macOS machines (free for public repositories).
+# Without Apple signing secrets it builds for the iOS Simulator only, to prove everything compiles.
+# With the secrets below it produces a signed .ipa ready for TestFlight and the App Store.
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+
+jobs:
+  ios:
+    runs-on: macos-latest
+    env:
+      P12_B64: ${{ secrets.IOS_CERT_P12_B64 }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Build data
+        run: npm run data
+        env:
+          QF_CLIENT_ID: ${{ secrets.QF_CLIENT_ID }}
+          QF_CLIENT_SECRET: ${{ secrets.QF_CLIENT_SECRET }}
+      - name: Build the app's web content
+        run: npm run build:app:site
+      - name: Create the iOS project
+        run: |
+          [ -d ios ] || npx cap add ios
+          npx capacitor-assets generate --ios --iconBackgroundColor '#0E3B31' --splashBackgroundColor '#0E3B31' || echo "icon generation skipped"
+          npx cap sync ios
+          PL=ios/App/App/Info.plist
+          /usr/libexec/PlistBuddy -c "Add :NSMicrophoneUsageDescription string 'The app listens while you recite so it can follow you and mark each word.'" $PL || true
+          /usr/libexec/PlistBuddy -c "Add :NSSpeechRecognitionUsageDescription string 'Your recitation is turned into text so the app can check each word.'" $PL || true
+          /usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName Qāf" $PL || true
+      - name: Build for the iOS Simulator (no signing needed)
+        if: ${{ env.P12_B64 == '' }}
+        working-directory: ios/App
+        run: xcodebuild -workspace App.xcworkspace -scheme App -configuration Debug -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' build CODE_SIGNING_ALLOWED=NO
+      - name: Signed build for TestFlight / App Store
+        if: ${{ env.P12_B64 != '' }}
+        working-directory: ios/App
+        env:
+          P12_PASSWORD: ${{ secrets.IOS_CERT_PASSWORD }}
+          PROFILE_B64: ${{ secrets.IOS_PROFILE_B64 }}
+          TEAM_ID: ${{ secrets.IOS_TEAM_ID }}
+        run: |
+          KEYCHAIN=$RUNNER_TEMP/build.keychain
+          security create-keychain -p ci "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p ci "$KEYCHAIN"
+          echo "$P12_B64" | base64 -d > $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -k "$KEYCHAIN" -P "$P12_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s "$KEYCHAIN" $(security list-keychains -d user | tr -d '"')
+          security set-key-partition-list -S apple-tool:,apple: -s -k ci "$KEYCHAIN"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          echo "$PROFILE_B64" | base64 -d > ~/Library/MobileDevice/Provisioning\ Profiles/qaaf.mobileprovision
+          xcodebuild -workspace App.xcworkspace -scheme App -configuration Release -archivePath $RUNNER_TEMP/App.xcarchive archive DEVELOPMENT_TEAM="$TEAM_ID" CODE_SIGN_STYLE=Manual
+          cat > $RUNNER_TEMP/export.plist <<PLIST
+          <?xml version="1.0" encoding="UTF-8"?>
+          <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+          <plist version="1.0"><dict><key>method</key><string>app-store</string><key>teamID</key><string>$TEAM_ID</string></dict></plist>
+          PLIST
+          xcodebuild -exportArchive -archivePath $RUNNER_TEMP/App.xcarchive -exportOptionsPlist $RUNNER_TEMP/export.plist -exportPath $RUNNER_TEMP/export
+      - uses: actions/upload-artifact@v4
+        if: ${{ env.P12_B64 != '' }}
+        with:
+          name: qaaf-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
