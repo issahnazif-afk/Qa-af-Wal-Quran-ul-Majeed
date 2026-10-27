@@ -1,0 +1,56 @@
+name: Speech model - check training code
+
+# Before training on CAIR: proves the plain-PyTorch model equals NeMo's, then runs the whole
+# CAIR pipeline in miniature (download, features, training steps, test, ONNX export) on CPU.
+on:
+  workflow_dispatch:
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install tools
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg libsndfile1
+          pip install --upgrade pip
+          pip install torch==2.5.1 torchaudio==2.5.1 --index-url https://download.pytorch.org/whl/cpu
+          pip install "nemo_toolkit[asr]==2.5.3" onnx onnxruntime librosa "pyarrow<18" "datasets<4"
+      - name: Same output as NeMo?
+        shell: bash
+        run: |
+          curl -sL -o model.nemo https://github.com/yayaiu6/Real-Time-Quran-recitation-tracker-System/raw/main/arabic-asr/conformer_ctc_small_60e_adamw_30wtr_32wv_40wte.nemo
+          python tools/asr/cair/code/check_port.py model.nemo 2>&1 | tee check-log.txt
+      - name: Whole pipeline in miniature
+        shell: bash
+        run: |
+          export QAAF_HOME=$RUNNER_TEMP/qaaf
+          mkdir -p $QAAF_HOME/model && cp /tmp/model_weights.ckpt $QAAF_HOME/model/
+          cd tools/asr/cair/code
+          python prepare.py download --limit 40 --reciters Alafasy_128kbps,Husary_128kbps
+          python prepare.py features --limit 40 --reciters Alafasy_128kbps,Husary_128kbps
+          python train.py --max-steps 15 --max-frames 6000 --hours 0.5
+          python evaluate_export.py
+          python - <<PY
+          import sys, numpy as np, torch, onnxruntime as o
+          sys.path.insert(0, '.')
+          from qaaf_model import QaafASR
+          from qaaf_text import LETTERS
+          m = QaafASR(len(LETTERS) + 1); m.load_state_dict(torch.load('$QAAF_HOME/ckpt/best.pt')['model']); m.eval()
+          s = o.InferenceSession('$QAAF_HOME/export/qaaf-asr.onnx')
+          for T in (313, 1200):
+              x = np.random.randn(1, 80, T).astype('float32')
+              a = s.run(None, {'features': x, 'length': np.array([T])})[0]
+              b = m(torch.tensor(x), torch.tensor([T]))[0].detach().numpy()
+              print('frames', T, 'onnx', a.shape, 'difference from PyTorch', float(np.abs(a - b).max()))
+              assert a.shape == b.shape and np.abs(a - b).max() < 1e-3
+          PY
+          echo "MINI PIPELINE PASSED"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: asr-check-log
+          path: check-log.txt
