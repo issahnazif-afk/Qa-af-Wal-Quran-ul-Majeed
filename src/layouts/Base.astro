@@ -27,6 +27,7 @@ const nav = [
   <meta name="description" content={description} />
   <meta name="theme-color" content="#0E6B4E" />
   <link rel="icon" href={u('favicon.svg')} type="image/svg+xml" />
+  <link rel="apple-touch-icon" href={u('apple-touch-icon.png')} />
   <link rel="manifest" href={u('manifest.webmanifest')} />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
@@ -41,7 +42,9 @@ const nav = [
         if (t) document.documentElement.dataset.theme = t;
         // app mode: the mobile app's focus views (no site header or footer)
         var q = new URLSearchParams(location.search);
-        if (q.get('app') === '1' || document.documentElement.dataset.app === '1') sessionStorage.setItem('ql-app', '1');
+        var native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());
+        if (native && (location.pathname === '/' || location.pathname === '/index.html')) { location.replace('/app/index.html'); return; }
+        if (q.get('app') === '1' || native || document.documentElement.dataset.app === '1') sessionStorage.setItem('ql-app', '1');
         if (q.get('app') === '0') sessionStorage.removeItem('ql-app');
         if (sessionStorage.getItem('ql-app') === '1') document.documentElement.dataset.app = '1';
         var sc = localStorage.getItem('ql-script'); if (sc) document.documentElement.dataset.script = JSON.parse(sc);
@@ -89,7 +92,7 @@ const nav = [
       root.dataset.theme = next;
       try { localStorage.setItem('ql-theme', next); } catch {}
     });
-    if ('serviceWorker' in navigator) {
+    if ('serviceWorker' in navigator && !import.meta.env.PUBLIC_APP_BUILD) {
       navigator.serviceWorker.register(u('sw.js'), { scope: u() }).catch(() => {});
     }
   </script>

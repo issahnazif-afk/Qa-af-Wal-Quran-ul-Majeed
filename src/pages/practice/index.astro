@@ -214,11 +214,12 @@ const meta = getMeta();
     import { getJson, pad, settings, store, audioUrl } from '../../lib/client.mjs';
     import { tokenize, normalize, matchAt, THRESHOLDS, buildLocator, locate } from '../../lib/recite.mjs';
     import { createFollower } from '../../lib/follow.mjs';
+    import { getSpeechRecognition } from '../../lib/speech.mjs';
     import { u } from '../../lib/url.mjs';
     import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
 
     const $ = (id) => document.getElementById(id);
-    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    const SR = getSpeechRecognition();
     const AR = '٠١٢٣٤٥٦٧٨٩';
     const arNum = (n) => String(n).replace(/\d/g, (d) => AR[d]);
     const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -412,12 +413,14 @@ const meta = getMeta();
     }
 
     async function ensureAhead() {
-      if (mode !== 'follow' || appending || lastSurah >= 114 || flat.length - pos > 30) return;
+      if (mode !== 'follow' || appending || lastSurah >= 114 || flat.length - pos > 120) return;
       appending = true;
       try {
         const { out } = await surahItems(lastSurah + 1);
         items.push(...out); flat.push(...out.flatMap((it) => it.words));
         lastSurah++;
+        // the next surah may start on the page already on screen (Al-Ikhlas → Al-Falaq): draw it again
+        if (out.some((it) => it.page === shownPage) && !running) { await renderPage(shownPage, false); updateCurrent(); }
       } finally { appending = false; }
     }
 
@@ -480,8 +483,9 @@ const meta = getMeta();
       const letters = Math.max(1, w.plain.length);
       const backlog = queue.length;
       // quick enough to keep pace with normal recitation, quicker still when speech runs ahead
-      const dur = backlog > 2 ? 110 : Math.min(240, Math.max(130, letters * 22));
-      const gap = backlog > 2 ? 12 : Math.min(60, Math.max(25, letters * 8));
+      // keeps pace from slow tartil to fast hadr: the further the reader is ahead, the faster the ink
+      const dur = backlog > 6 ? 50 : backlog > 2 ? 100 : Math.min(220, Math.max(120, letters * 20));
+      const gap = backlog > 6 ? 0 : backlog > 2 ? 10 : Math.min(50, Math.max(20, letters * 7));
       return { dur, gap };
     }
     function settle(sp, w) {
@@ -495,6 +499,7 @@ const meta = getMeta();
           await wait(Math.max(0, lastInkEnd - Date.now()) + (reduceMotion ? 0 : 150));
           await renderPage(w.page, true);
         }
+        if (!w.el?.isConnected) await renderPage(w.page, false);   // e.g. the next surah was added after this page was drawn
         const sp = w.el;
         if (!sp) return;
         const { dur, gap } = reduceMotion ? { dur: 1, gap: 0 } : timing(w);
@@ -576,7 +581,7 @@ const meta = getMeta();
 
     // Did another of the speech engine's guesses hear the right word?
 
-    let lastPos = '';
+    let lastPos = '', redrawing = false;
     function updateCurrent() {
       const cw = flat[pos];
       if (cw && `${cw.item.s}:${cw.item.a}` !== lastPos) {
@@ -587,6 +592,7 @@ const meta = getMeta();
       $('bar').style.width = mode === 'surah' && flat.length ? `${(pos / flat.length) * 100}%` : '0';
       const w = flat[pos];
       if (!w || phase !== 'tracking') return;
+      if (w.page === shownPage && !w.el?.isConnected && !running && !redrawing) { redrawing = true; renderPage(shownPage, false).then(() => { redrawing = false; updateCurrent(); }); return; }
       if (w.page === shownPage) { w.el?.classList.add('current'); follow(w.el); }
       const it = w.item;
       $('where').textContent = `${it.label}, word ${w.wi + 1} of ${it.words.length}, page ${w.page}`;

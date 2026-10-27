@@ -371,12 +371,15 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       dkPlay.setAttribute('aria-label', playing ? 'Pause' : 'Listen');
     }).observe(pBtn, { attributes: true, attributeFilter: ['aria-label'] });
     async function listenQueue() {
-      // Listen: from the first ayah on this page to the end of the surah, turning pages as it goes
-      const first = box.querySelector('.paper:not(.partner) .mk[data-k]') ?? box.querySelector('.mk[data-k]');
-      const [s, a] = (first?.dataset.k ?? '1:1').split(':').map(Number);
-      const firstOnPage = box.querySelector('.paper:not(.partner) [data-k]')?.dataset.k.split(':').map(Number) ?? [s, a];
-      const sura = await getJson(`surah/${pad(firstOnPage[0])}.json`);
-      return sura.ayahs.filter((x) => x.a >= firstOnPage[1]).map((x) => ({ s: firstOnPage[0], a: x.a, label: `${sura.en}, ${firstOnPage[0]}:${x.a}` }));
+      // Listen: from the first ayah on this page onwards, through the following surahs, turning pages as it goes
+      const firstOnPage = box.querySelector('.paper:not(.partner) [data-k]')?.dataset.k.split(':').map(Number) ?? [1, 1];
+      const meta = await getJson('meta.json');
+      const q = [];
+      for (let s = firstOnPage[0]; s <= 114 && q.length < 2000; s++) {
+        const info = meta.surahs[s - 1];
+        for (let a = s === firstOnPage[0] ? firstOnPage[1] : 1; a <= info.ayahs; a++) q.push({ s, a, label: `${info.en}, ${s}:${a}` });
+      }
+      return q;
     }
     dkPlay.addEventListener('click', async () => {
       if (started) { pBtn.click(); return; }

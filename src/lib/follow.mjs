@@ -119,13 +119,16 @@ export function createFollower(o) {
 
         // 6. the engine garbled or dropped 1–2 words, but the reader clearly carried on
         const need = res.isFinal ? 1 : 2;
+        let dropped = 0;
+        for (let s = 1; s <= 3 && !dropped; s++) if (runMatches(spoken, i, flat, pos + s, s === 3 ? Math.max(2, need) : need, th)) dropped = s;
+        if (dropped) { misses = 0; o.accept(dropped, 'unclear'); continue; }
+
         if (runMatches(spoken, i + 1, flat, pos + 1, need, th)) {          // garbled: this word stands for the expected one
           misses = 0; i++; commit(r, i, spoken); o.accept(1, 'unclear'); continue;
         }
-        let dropped = 0;
-        for (let s = 1; s <= 2 && !dropped; s++) if (runMatches(spoken, i, flat, pos + s, need, th)) dropped = s;
-        if (dropped) { misses = 0; o.accept(dropped, 'unclear'); continue; }
-
+        if (runMatches(spoken, i + 1, flat, pos + 2, Math.max(2, need), th)) {   // garbled into one word, covering two
+          misses = 0; i++; commit(r, i, spoken); o.accept(2, 'unclear'); continue;
+        }
         // 7. interim guesses can still change: wait
         if (!res.isFinal) break;
 
