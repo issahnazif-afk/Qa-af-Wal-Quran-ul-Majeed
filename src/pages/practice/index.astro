@@ -537,27 +537,35 @@ const meta = getMeta();
     }
 
     // Smoothly change pages: the finished page slides away and the next one slides in from the left.
+    // Smoothly change pages: the finished page slides away and the next one slides in from the left.
+    // Only ever one page stays on the stage, whatever the device supports.
     async function swapPaper(paper, animate) {
       const stage = $('stage');
-      const old = stage.querySelector('.paper');
-      if (!animate || !old || reduceMotion) { stage.replaceChildren(paper); await fitPaper(paper); return; }
+      const olds = [...stage.querySelectorAll('.paper')];
+      const old = olds[olds.length - 1];
+      const canAnimate = animate && old && !reduceMotion && typeof paper.animate === 'function';
+      if (!canAnimate) { stage.replaceChildren(paper); stage.style.minHeight = ''; await fitPaper(paper); return; }
       const box = old.getBoundingClientRect();
       stage.style.position = 'relative';
       stage.style.minHeight = old.offsetHeight + 'px';
+      olds.slice(0, -1).forEach((x) => x.remove());
       Object.assign(old.style, { position: 'absolute', top: '0', left: '50%', width: box.width + 'px', margin: '0' });
       paper.style.opacity = '0';
       stage.append(paper);
       await fitPaper(paper);
       paper.style.opacity = '';
-      const opts = { duration: 420, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' };
-      old.animate([{ opacity: 1, transform: 'translateX(-50%)' }, { opacity: 0, transform: 'translateX(calc(-50% + 70px))' }], opts);
-      await paper.animate([{ opacity: 0, transform: 'translateX(-70px)' }, { opacity: 1, transform: 'none' }], opts).finished.catch(() => {});
-      old.remove();
+      const opts = { duration: 380, easing: 'cubic-bezier(.2,.7,.2,1)', fill: 'forwards' };
+      try {
+        old.animate([{ opacity: 1, transform: 'translateX(-50%)' }, { opacity: 0, transform: 'translateX(calc(-50% + 70px))' }], opts);
+        const a = paper.animate([{ opacity: 0, transform: 'translateX(-70px)' }, { opacity: 1, transform: 'none' }], opts);
+        await (a.finished ? a.finished.catch(() => {}) : new Promise((r) => setTimeout(r, 400)));
+      } catch { /* no animation support: just swap */ }
+      stage.querySelectorAll('.paper').forEach((x) => { if (x !== paper) x.remove(); });
       stage.style.minHeight = '';
       const bar = document.querySelector('.practice .toolbar');
-      const barBottom = bar ? bar.getBoundingClientRect().bottom : 80;
+      const barBottom = bar && getComputedStyle(bar).position !== 'fixed' ? bar.getBoundingClientRect().bottom : (document.querySelector('.appbar')?.getBoundingClientRect().bottom ?? 0);
       const top = paper.getBoundingClientRect().top;
-      if (top < barBottom || top > innerHeight * 0.45) window.scrollBy({ top: top - barBottom - 12, behavior: 'smooth' });
+      if (top < barBottom || top > innerHeight * 0.45) window.scrollBy({ top: top - barBottom - 8, behavior: 'smooth' });
     }
 
     let fitT;
@@ -571,8 +579,9 @@ const meta = getMeta();
       if (now - lastFollow < 250) return;
       const r = node.getBoundingClientRect();
       const bar = document.querySelector('.practice .toolbar');
-      const topLimit = (bar ? bar.getBoundingClientRect().bottom : 80) + 24;
-      const bottomLimit = innerHeight - 120;
+      const fixedBar = bar && getComputedStyle(bar).position === 'fixed';
+      const topLimit = (fixedBar ? (document.querySelector('.appbar')?.getBoundingClientRect().bottom ?? 0) : (bar ? bar.getBoundingClientRect().bottom : 80)) + 24;
+      const bottomLimit = innerHeight - (fixedBar ? bar.offsetHeight + 24 : 120);
       if (r.top < topLimit || r.bottom > bottomLimit) {
         lastFollow = now;
         window.scrollBy({ top: r.top - (topLimit + (bottomLimit - topLimit) * 0.35), behavior: reduceMotion ? 'auto' : 'smooth' });

@@ -225,3 +225,14 @@ html[data-app] .lab-short { display: inline; }
 html[data-app] .hifz .examiner { padding: 10px 12px; gap: 10px; }
 html[data-app] .hifz .examiner .sheikh { max-width: 84px; }
 html[data-app] .hifz .bubble { padding: 8px 10px; }
+
+/* the app shows one focused page that fills the phone */
+html[data-app] .practice .stage { padding: 0 2px; }
+html[data-app] .practice .paper { max-width: none; min-height: calc(100vh - 300px); min-height: calc(100dvh - 300px); border-radius: 4px; box-shadow: none; }
+html[data-app] .practice .stage .paper ~ .paper { display: none; }
+/* edge-to-edge pages on phones, so the printed lines can be as large as possible */
+html[data-app] .practice .paper, html[data-app] .mushaf-v2 .paper { padding: 12px 5px 8px; border-left: 0; border-right: 0; }
+html[data-app] .practice.page, html[data-app] .practice .stage { padding-left: 0; padding-right: 0; }
+html[data-app] .practice.narrow { padding-left: 0; padding-right: 0; }
+html[data-app] .practice .summary-bar { margin: 0 10px; padding: 8px 12px; }
+html[data-app] .practice .summary-bar #summary-text { font-size: 13px; }

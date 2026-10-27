@@ -63,6 +63,8 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
       .mushaf-v2 .paper { padding: 14px 10px 10px; }
     }
     html[data-app] .mushaf-v2 .bar, html[data-app] .mushaf-v2 .hintline { display: none; }
+    html[data-app] .mushaf-v2 .paper.partner { display: none !important; }
+    html[data-app] .mushaf-v2 .paper { flex: 1 1 auto; max-width: 640px; aspect-ratio: auto; min-height: calc(100vh - 190px); min-height: calc(100dvh - 190px); }
     html[data-app] .mushaf-v2 .spread { padding: 8px 6px 12px; }
     html[data-app] .mushaf-v2 .paper { border-radius: 4px; box-shadow: none; }
     .mushaf-v2 .trbox { position: fixed; left: 10px; right: 10px; bottom: calc(108px + env(safe-area-inset-bottom, 0px)); z-index: 31; padding: 12px 14px; font-size: 15px; line-height: 1.55; max-height: 30vh; overflow-y: auto; }
@@ -175,7 +177,7 @@ const trOf = (s, a) => getSurah(s).ayahs[a - 1].tr[cfg.defaultTranslation] ?? ''
 
     // ── two-page spreads on wide screens ──────────────────────
     spreadToggle.checked = store.get('spread', true);
-    const spreading = () => spreadToggle.checked && wide.matches;
+    const spreading = () => spreadToggle.checked && wide.matches && document.documentElement.dataset.app !== '1';   // the app is always one focused page
     function applySpread() {
       root.classList.toggle('can-spread', spreadToggle.checked);
       spreadToggle.closest('label').hidden = !wide.matches;
