@@ -19,7 +19,8 @@ jobs:
           sudo apt-get update -y && sudo apt-get install -y ffmpeg libsndfile1
           pip install --upgrade pip
           pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
-          pip install "nemo_toolkit[asr]==2.5.3" onnx onnxruntime librosa
+          pip install "nemo_toolkit[asr]==2.5.3" onnx onnxruntime librosa "pyarrow<18" "datasets<4"
+          python -c "import numpy, pyarrow; print('numpy', numpy.__version__, 'pyarrow', pyarrow.__version__)"
       - name: Export and test
         run: python tools/asr/export_and_evaluate.py
       - uses: actions/upload-artifact@v5
