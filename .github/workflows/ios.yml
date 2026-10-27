@@ -65,7 +65,7 @@ jobs:
           <plist version="1.0"><dict><key>method</key><string>app-store</string><key>teamID</key><string>$TEAM_ID</string></dict></plist>
           PLIST
           xcodebuild -exportArchive -archivePath $RUNNER_TEMP/App.xcarchive -exportOptionsPlist $RUNNER_TEMP/export.plist -exportPath $RUNNER_TEMP/export
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v5
         if: ${{ env.P12_B64 != '' }}
         with:
           name: qaaf-ios-ipa
