@@ -1,0 +1,28 @@
+name: Speech model - export and test
+
+# Converts the open Arabic Conformer-CTC speech model to ONNX (to run on the phone and in the browser)
+# and measures its accuracy and speed on real recitations. Run it from Actions → Run workflow.
+# Results: the run log, and the "qaaf-asr-model" artifact (model files + report.txt).
+on:
+  workflow_dispatch:
+
+jobs:
+  export:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+      - name: Install tools
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg libsndfile1
+          pip install --upgrade pip
+          pip install torch torchaudio --index-url https://download.pytorch.org/whl/cpu
+          pip install "nemo_toolkit[asr]==2.5.3" onnx onnxruntime librosa
+      - name: Export and test
+        run: python tools/asr/export_and_evaluate.py
+      - uses: actions/upload-artifact@v5
+        with:
+          name: qaaf-asr-model
+          path: asr-out/
