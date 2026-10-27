@@ -9,7 +9,7 @@ Runs in GitHub Actions (workflow "Speech model: export and test"). Outputs, in .
   vocab.json                           the model's word-pieces
   report.txt                           accuracy (word error rate) and speed on real recitations
 """
-import json, os, re, sys, time, urllib.request, xml.etree.ElementTree as ET
+import json, os, re, sys, time, traceback, urllib.request, xml.etree.ElementTree as ET
 import numpy as np
 
 OUT = 'asr-out'
@@ -33,24 +33,45 @@ pre.featurizer.dither = 0.0
 pre.featurizer.pad_to = 0
 log('vocabulary size:', len(model.decoder.vocabulary))
 
-# ── 1. export ─────────────────────────────────────────────────────────────
-model.export(os.path.join(OUT, 'qaaf-asr.onnx'))
+# ── 1. export (never stops the run: accuracy is measured with NeMo itself either way) ──
+import traceback
 import onnx, onnxruntime as ort
 from onnxruntime.quantization import quantize_dynamic, QuantType
-quantize_dynamic(os.path.join(OUT, 'qaaf-asr.onnx'), os.path.join(OUT, 'qaaf-asr.int8.onnx'), weight_type=QuantType.QInt8)
-for f in ['qaaf-asr.onnx', 'qaaf-asr.int8.onnx']:
-    log(f, os.path.getsize(os.path.join(OUT, f)) // 1024, 'KB')
-m = onnx.load(os.path.join(OUT, 'qaaf-asr.onnx'))
-log('onnx inputs:', [(i.name, [d.dim_param or d.dim_value for d in i.type.tensor_type.shape.dim]) for i in m.graph.input])
-log('onnx outputs:', [o.name for o in m.graph.output])
+ONNX_OK = False
+class EncDec(torch.nn.Module):
+    def __init__(self, m): super().__init__(); self.enc, self.dec = m.encoder, m.decoder
+    def forward(self, audio_signal, length):
+        e, el = self.enc(audio_signal=audio_signal, length=length)
+        return self.dec(encoder_output=e)
+try:
+    try:
+        model.export(os.path.join(OUT, 'qaaf-asr.onnx'))
+        log('export: NeMo exporter')
+    except Exception as e:
+        log('NeMo exporter failed, trying torch.onnx.export:', repr(e)[:300])
+        dummy = torch.randn(1, 80, 400); dl = torch.tensor([400])
+        torch.onnx.export(EncDec(model).eval(), (dummy, dl), os.path.join(OUT, 'qaaf-asr.onnx'),
+                          input_names=['audio_signal', 'length'], output_names=['logprobs'],
+                          dynamic_axes={'audio_signal': {0: 'B', 2: 'T'}, 'length': {0: 'B'}, 'logprobs': {0: 'B', 1: 'T4'}},
+                          opset_version=17, dynamo=False)
+        log('export: torch.onnx.export')
+    quantize_dynamic(os.path.join(OUT, 'qaaf-asr.onnx'), os.path.join(OUT, 'qaaf-asr.int8.onnx'), weight_type=QuantType.QInt8)
+    for f in ['qaaf-asr.onnx', 'qaaf-asr.int8.onnx']:
+        log(f, os.path.getsize(os.path.join(OUT, f)) // 1024, 'KB')
+    m = onnx.load(os.path.join(OUT, 'qaaf-asr.onnx'))
+    log('onnx inputs:', [(i.name, [d.dim_param or d.dim_value for d in i.type.tensor_type.shape.dim]) for i in m.graph.input])
+    log('onnx outputs:', [o.name for o in m.graph.output])
+    ONNX_OK = True
+except Exception:
+    log('EXPORT FAILED (accuracy is still measured below):'); log(traceback.format_exc()[-2500:])
 
 # ── 2. the featurizer the app will use, written in plain numpy so it can be ported 1:1 to JavaScript
 fz = pre.featurizer
 fb = fz.fb.squeeze(0).numpy().astype(np.float32)            # (80, 257)
 win = fz.window.numpy().astype(np.float32) if fz.window is not None else np.hanning(fz.win_length).astype(np.float32)
-cfg = dict(sample_rate=fz.sample_rate if hasattr(fz, 'sample_rate') else 16000, n_fft=int(fz.n_fft), hop=int(fz.hop_length),
-           win=int(fz.win_length), preemph=float(fz.preemph or 0.0), log_guard=float(2 ** -24),
-           mag_power=float(fz.mag_power), normalize='per_feature', exact_pad=bool(getattr(fz, 'exact_pad', False)))
+cfg = dict(sample_rate=int(getattr(fz, 'sample_rate', 16000) or 16000), n_fft=int(fz.n_fft), hop=int(fz.hop_length),
+           win=int(fz.win_length), preemph=float(getattr(fz, 'preemph', 0.97) or 0.0), log_guard=float(2 ** -24),
+           mag_power=float(getattr(fz, 'mag_power', 2.0)), normalize='per_feature', exact_pad=bool(getattr(fz, 'exact_pad', False)))
 json.dump({**cfg, 'window': win.tolist(), 'fb': fb.tolist()}, open(os.path.join(OUT, 'features.json'), 'w'))
 json.dump(list(model.decoder.vocabulary), open(os.path.join(OUT, 'vocab.json'), 'w'), ensure_ascii=False)
 log('features:', {k: v for k, v in cfg.items()})
@@ -93,8 +114,8 @@ def wer(ref, hyp):
 import librosa
 tests = [(1, a) for a in range(1, 8)] + [(2, a) for a in (2, 3, 4, 5, 255)] + [(36, a) for a in (1, 2, 3, 4, 5)] + [(67, a) for a in (1, 2, 3)] + [(112, 1), (112, 2), (113, 1), (114, 1)]
 reciters = ['Alafasy_128kbps', 'Husary_128kbps', 'Minshawy_Murattal_128kbps']
-sess = {k: ort.InferenceSession(os.path.join(OUT, f), providers=['CPUExecutionProvider']) for k, f in [('fp32', 'qaaf-asr.onnx'), ('int8', 'qaaf-asr.int8.onnx')]}
-in_names = [i.name for i in sess['fp32'].get_inputs()]
+sess = {k: ort.InferenceSession(os.path.join(OUT, f), providers=['CPUExecutionProvider']) for k, f in [('fp32', 'qaaf-asr.onnx'), ('int8', 'qaaf-asr.int8.onnx')]} if ONNX_OK else {}
+in_names = [i.name for i in sess['fp32'].get_inputs()] if ONNX_OK else []
 vocab = list(model.decoder.vocabulary)
 blank = len(vocab)
 def decode(logp):
@@ -128,7 +149,7 @@ for rec in reciters:
         totals['nemo'][0] += wer(ref, hyp); totals['nemo'][1] += 1; totals['nemo'][2] += secs; totals['nemo'][3] += time.time() - t0
         mine = features(audio)
         maxdiff = max(maxdiff, float(np.abs(mine[:, :feats.shape[2]] - feats[0].numpy()[:, :mine.shape[1]]).max()))
-        for k in ('fp32', 'int8'):
+        for k in (('fp32', 'int8') if ONNX_OK else ()):
             t0 = time.time()
             o = sess[k].run(None, {in_names[0]: mine[None], in_names[1]: np.array([mine.shape[1]], dtype=np.int64)})[0]
             h = norm(decode(o[0]))
