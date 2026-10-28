@@ -52,7 +52,7 @@ export function makeFeaturizer(f) {
     const y = new Float32Array(len + 2 * pad);
     y[pad] = x[0];
     for (let i = 1; i < len; i++) y[pad + i] = x[i] - f.preemph * x[i - 1];
-    const T = Math.floor(len / hop) + 1;
+    const T = Math.max(1, Math.floor(len / hop));             // NeMo keeps len // hop frames
     const out = new Float32Array(nm * T);
     for (let t = 0; t < T; t++) {
       for (let i = 0; i < n; i++) { const j = rev[i]; re[j] = (y[t * hop + i] ?? 0) * win[i]; im[j] = 0; }

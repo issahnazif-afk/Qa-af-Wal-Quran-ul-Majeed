@@ -35,7 +35,7 @@ class Featurizer(nn.Module):
         frames = x.unfold(0, FEAT['n_fft'], FEAT['hop']) * self.window   # (T, 512)
         spec = torch.fft.rfft(frames, n=FEAT['n_fft']).abs() ** 2        # (T, 257)
         mel = torch.log(spec @ self.fb.T + FEAT['log_guard']).T          # (80, T)
-        mel = mel[:, : wav.numel() // FEAT['hop'] + 1]
+        mel = mel[:, : wav.numel() // FEAT['hop']]                      # NeMo keeps len // hop frames
         mean = mel.mean(dim=1, keepdim=True)
         std = mel.std(dim=1, unbiased=True, keepdim=True) + 1e-5
         return (mel - mean) / std
@@ -48,12 +48,22 @@ class ConvSubsampling(nn.Module):
         self.conv = nn.Sequential(nn.Conv2d(1, channels, 3, 2, 1), nn.ReLU(), nn.Conv2d(channels, channels, 3, 2, 1), nn.ReLU())
         self.out = nn.Linear(channels * ((feat_in + 3) // 4), d_model)
 
+    @staticmethod
+    def _mask(x, lengths):                                           # zero the time steps beyond each length
+        idx = torch.cumsum(torch.ones_like(x[:, 0, :, 0], dtype=torch.long), dim=1) - 1
+        return x * (idx < lengths[:, None]).to(x.dtype)[:, None, :, None]
+
     def forward(self, x, lengths):                                   # x (B, T, F)
-        x = self.conv(x.unsqueeze(1))
+        # NeMo 2.x masks the padding before each convolution, so padded batches give the same result
+        x = self._mask(x.unsqueeze(1), lengths)
+        x = self.conv[1](self.conv[0](x))
+        lengths = torch.div(lengths - 1, 2, rounding_mode='floor') + 1
+        x = self._mask(x, lengths)
+        x = self.conv[3](self.conv[2](x))
+        lengths = torch.div(lengths - 1, 2, rounding_mode='floor') + 1
+        x = self._mask(x, lengths)
         b, c, t, f = x.shape
         x = self.out(x.transpose(1, 2).reshape(b, t, c * f))
-        for _ in range(2):
-            lengths = torch.div(lengths - 1, 2, rounding_mode='floor') + 1
         return x, lengths
 
 
