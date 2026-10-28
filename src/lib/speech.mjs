@@ -3,7 +3,13 @@
 // web view has no Web Speech API, so the phone's own recogniser is used through the
 // @capacitor-community/speech-recognition plugin, wrapped to behave the same way.
 
+import { LocalRecognition } from './asr-local.mjs';
+
+// The reader can choose the on-device Qāf model (menu → Listening engine) once it is published.
 export function getSpeechRecognition() {
+  let engine = 'speech';
+  try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
+  if (engine === 'local' && navigator.mediaDevices?.getUserMedia) return LocalRecognition;
   const cap = window.Capacitor;
   if (cap?.isNativePlatform?.()) return NativeRecognition;
   return window.SpeechRecognition || window.webkitSpeechRecognition || null;

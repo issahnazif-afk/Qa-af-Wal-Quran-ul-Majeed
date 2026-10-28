@@ -395,6 +395,7 @@ async function main() {
   await writeJson('meta.json', {
     surahs: surahIndex, pages: pageStarts, juzs: juzStarts,
     translations: cfg.translations, wbw: !!wbw, tajweed: !!tajweed,
+    localAsr: await fs.access(path.join(ROOT, 'public', 'models', 'qaaf-asr.onnx')).then(() => true, () => false),
     riwayat: riwayat.map(({ id, name, font }) => ({ id, name, font })), _copyright: TANZIL_NOTICE,
   });
 

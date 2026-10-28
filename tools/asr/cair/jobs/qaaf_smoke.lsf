@@ -1,0 +1,19 @@
+#BSUB -J qaaf_smoke
+#BSUB -q gpu
+#BSUB -gpu "num=1"
+#BSUB -n 4
+#BSUB -W 1:00
+#BSUB -o qaaf_asr/logs/smoke.%J.out
+#BSUB -e qaaf_asr/logs/smoke.%J.out
+# Quick test: features for the first 200 ayahs of two reciters, 300 training steps, test and export.
+source ~/qaaf_asr/env.sh
+export QAAF_HOME=~/qaaf_asr_smoke
+mkdir -p $QAAF_HOME/model $QAAF_HOME/mp3
+ln -sf ~/qaaf_asr/model/model_weights.ckpt $QAAF_HOME/model/model_weights.ckpt
+for r in Alafasy_128kbps Husary_128kbps; do ln -sfn ~/qaaf_asr/mp3/$r $QAAF_HOME/mp3/$r; done
+cd ~/qaaf_asr/code
+nvidia-smi --query-gpu=name,memory.total --format=csv
+python3 prepare.py features --limit 200 --reciters Alafasy_128kbps,Husary_128kbps
+python3 train.py --max-steps 300 --hours 0.8
+python3 evaluate_export.py
+echo "SMOKE TEST FINISHED"

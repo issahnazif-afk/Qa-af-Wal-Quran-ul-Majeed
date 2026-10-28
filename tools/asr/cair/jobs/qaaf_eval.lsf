@@ -1,0 +1,11 @@
+#BSUB -J qaaf_eval
+#BSUB -q gpu
+#BSUB -gpu "num=1"
+#BSUB -n 4
+#BSUB -W 2:00
+#BSUB -o qaaf_asr/logs/eval.%J.out
+#BSUB -e qaaf_asr/logs/eval.%J.out
+# Tests the best model on the two held-out reciters, measures speed, exports ONNX for the app.
+source ~/qaaf_asr/env.sh
+cd ~/qaaf_asr/code
+python3 evaluate_export.py

@@ -1,0 +1,12 @@
+#BSUB -J qaaf_train
+#BSUB -q gpu
+#BSUB -gpu "num=1"
+#BSUB -n 4
+#BSUB -W 8:00
+#BSUB -o qaaf_asr/logs/train.%J.out
+#BSUB -e qaaf_asr/logs/train.%J.out
+# Fine-tunes on one V100. Saves before the 8 h limit; submit again until the log says TRAINING COMPLETE.
+source ~/qaaf_asr/env.sh
+cd ~/qaaf_asr/code
+nvidia-smi --query-gpu=name,memory.total --format=csv
+python3 train.py --hours 7.4 --epochs 15 --max-frames 32000

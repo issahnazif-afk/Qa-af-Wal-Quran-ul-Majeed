@@ -1,0 +1,11 @@
+#BSUB -J qaaf_features
+#BSUB -q gpu
+#BSUB -gpu "num=1"
+#BSUB -n 4
+#BSUB -W 8:00
+#BSUB -o qaaf_asr/logs/features.%J.out
+#BSUB -e qaaf_asr/logs/features.%J.out
+# Decodes every recitation and writes the features. Safe to resubmit: finished reciters are skipped.
+source ~/qaaf_asr/env.sh
+cd ~/qaaf_asr/code
+python3 prepare.py features

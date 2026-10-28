@@ -33,6 +33,12 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
         <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (not built yet)'}</option>
       </select>
     </label>
+    <label>Listening
+      <select id="qb-engine" aria-label="Listening engine">
+        <option value="speech">Phone / browser speech</option>
+        <option value="local" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf on-device model' : 'Qāf model (not published yet)'}</option>
+      </select>
+    </label>
     <label>Riwayah
       <select id="qb-riwayah" aria-label="Riwayah" disabled={mode === 'hifz'} title={mode === 'hifz' ? 'The Hifz test uses Hafs: the Sheikh’s recitations are in Hafs' : ''}>
         {riwayat.map(([id, name]) => <option value={id}>{name}</option>)}
@@ -103,6 +109,16 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
   const saved = store.get('script', 'plain');
   scriptSel.value = saved === 'tajweed' && bar.dataset.tajweed ? 'tajweed' : 'plain';
   document.documentElement.dataset.script = scriptSel.value;
+  // listening engine: the phone's speech service, or the Qāf model running on the device
+  const engSel = document.getElementById('qb-engine');
+  const engSaved = store.get('engine', 'speech');
+  engSel.value = engSaved === 'local' && !engSel.querySelector('option[value="local"]').disabled ? 'local' : 'speech';
+  if (engSel.value !== engSaved) store.set('engine', engSel.value);
+  engSel.addEventListener('change', () => {
+    store.set('engine', engSel.value);
+    if (here === 'recite' || here === 'hifz') location.reload();   // the microphone is set up when the page opens
+  });
+
   // riwayah (remembered, applied live). Tajweed colours exist for Hafs only.
   const rwSel = document.getElementById('qb-riwayah');
   const rwSaved = store.get('riwayah', 'hafs');
