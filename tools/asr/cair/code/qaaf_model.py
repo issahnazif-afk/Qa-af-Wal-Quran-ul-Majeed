@@ -1,7 +1,6 @@
 """
 Qaf speech model: the NeMo Conformer-CTC (small) re-written in plain PyTorch, so it trains on CAIR
 (IBM Power / ppc64le, PyTorch 2.1) without installing NeMo, and exports cleanly to ONNX for the app.
-
 Parameter names match NeMo exactly, so the published Arabic weights load directly.
 The output layer is replaced by one letter per class (Arabic letters + space), which is what the
 app's tracker compares against and what makes letter-by-letter tracing possible.
@@ -14,10 +13,8 @@ import torch.nn.functional as F
 # ── features: identical in training, evaluation, ONNX export and the app ────────────────────
 FEAT = dict(sample_rate=16000, n_fft=512, win=400, hop=160, preemph=0.97, log_guard=2.0 ** -24, n_mels=80)
 
-
 class Featurizer(nn.Module):
     """16 kHz audio → normalised log-mel features (80 × frames). fb and window come from NeMo's checkpoint."""
-
     def __init__(self, fb: torch.Tensor, window: torch.Tensor):
         super().__init__()
         self.register_buffer('fb', fb.reshape(FEAT['n_mels'], FEAT['n_fft'] // 2 + 1).float())
@@ -40,12 +37,14 @@ class Featurizer(nn.Module):
         std = mel.std(dim=1, unbiased=True, keepdim=True) + 1e-5
         return (mel - mean) / std
 
-
 # ── encoder (NeMo ConformerEncoder, rel_pos attention, striding ×4 subsampling) ───────────
 class ConvSubsampling(nn.Module):
     def __init__(self, feat_in=80, d_model=176, channels=176):
         super().__init__()
-        self.conv = nn.Sequential(nn.Conv2d(1, channels, 3, 2, 1), nn.ReLU(), nn.Conv2d(channels, channels, 3, 2, 1), nn.ReLU())
+        self.conv = nn.Sequential(
+            nn.Conv2d(1, channels, 3, 2, 1), nn.ReLU(),
+            nn.Conv2d(channels, channels, 3, 2, 1), nn.ReLU()
+        )
         self.out = nn.Linear(channels * ((feat_in + 3) // 4), d_model)
 
     @staticmethod
@@ -66,10 +65,8 @@ class ConvSubsampling(nn.Module):
         x = self.out(x.transpose(1, 2).reshape(b, t, c * f))
         return x, lengths
 
-
 class RelPositionalEncoding(nn.Module):
     """Positions from L-1 down to -(L-1), sliced from a precomputed table (as NeMo does; ONNX-friendly)."""
-
     def __init__(self, d_model, max_len=5000):
         super().__init__()
         self.xscale = math.sqrt(d_model)
@@ -82,13 +79,10 @@ class RelPositionalEncoding(nn.Module):
         self.center = max_len - 1                                     # index of position 0
 
     def forward(self, x):
-        # Index the table with tensors built from x (not Python numbers), so the ONNX export
-        # works for any length instead of freezing the length it was exported with.
-        a = torch.cumsum(torch.ones_like(x[0, :, 0], dtype=torch.long), dim=0) - 1      # 0 .. L-1
-        n = a[-1:]                                                                       # L-1
-        idx = torch.cat([self.center - n + a, self.center + 1 + a[:-1]])                 # positions L-1 .. -(L-1)
-        return x * self.xscale, self.pe.index_select(1, idx).to(x.dtype)
-
+        # Clean dynamic slicing is fully supported by PyTorch ONNX exporter 
+        # and avoids the silent broadcasting/tracing bugs of index_select.
+        L = x.size(1)
+        return x * self.xscale, self.pe[:, self.center - L + 1 : self.center + L].to(x.dtype)
 
 class RelPositionMultiHeadAttention(nn.Module):
     def __init__(self, n_heads, d_model, dropout=0.1):
@@ -116,15 +110,16 @@ class RelPositionMultiHeadAttention(nn.Module):
         v = self.linear_v(x).view(b, t, self.h, self.dk).transpose(1, 2)
         p = self.linear_pos(pos_emb).view(1, -1, self.h, self.dk).transpose(1, 2)
         ac = (q + self.pos_bias_u).transpose(1, 2) @ k.transpose(-2, -1)
-        keep = torch.cumsum(torch.ones_like(x[0, :, 0], dtype=torch.long), dim=0) - 1   # first t columns, ONNX-safe
-        bd = self.rel_shift((q + self.pos_bias_v).transpose(1, 2) @ p.transpose(-2, -1)).index_select(3, keep)
+        
+        # Clean slicing [:, :, :, :t] is robust and ONNX-safe
+        bd = self.rel_shift((q + self.pos_bias_v).transpose(1, 2) @ p.transpose(-2, -1))[:, :, :, :t]
+        
         scores = (ac + bd) / math.sqrt(self.dk)
         m = mask.unsqueeze(1)
         scores = scores.masked_fill(m, -10000.0)
         attn = torch.softmax(scores, dim=-1).masked_fill(m, 0.0)
         out = (self.dropout(attn) @ v).transpose(1, 2).reshape(b, t, -1)
         return self.linear_out(out)
-
 
 class FeedForward(nn.Module):
     def __init__(self, d_model, d_ff, dropout=0.1):
@@ -135,7 +130,6 @@ class FeedForward(nn.Module):
 
     def forward(self, x):
         return self.linear2(self.dropout(F.silu(self.linear1(x))))
-
 
 class ConformerConvolution(nn.Module):
     def __init__(self, d_model, kernel=31):
@@ -150,7 +144,6 @@ class ConformerConvolution(nn.Module):
         x = x.masked_fill(pad_mask.unsqueeze(1), 0.0)
         x = self.pointwise_conv2(F.silu(self.batch_norm(self.depthwise_conv(x))))
         return x.transpose(1, 2)
-
 
 class ConformerLayer(nn.Module):
     def __init__(self, d_model=176, n_heads=4, ff_mult=4, kernel=31, dropout=0.1):
@@ -173,7 +166,6 @@ class ConformerLayer(nn.Module):
         x = x + 0.5 * self.dropout(self.feed_forward2(self.norm_feed_forward2(x)))
         return self.norm_out(x)
 
-
 class ConformerEncoder(nn.Module):
     def __init__(self, feat_in=80, n_layers=16, d_model=176, n_heads=4, ff_mult=4, kernel=31, dropout=0.1):
         super().__init__()
@@ -192,16 +184,13 @@ class ConformerEncoder(nn.Module):
             x = layer(x, pos_emb, att_mask, pad_mask)
         return x, lengths
 
-
 class Head(nn.Module):
     def __init__(self, d_model, n_out):
         super().__init__()
         self.decoder_layers = nn.Sequential(nn.Conv1d(d_model, n_out, 1))
 
-
 class QaafASR(nn.Module):
     """Encoder + CTC output layer. n_out = number of classes + 1 (the CTC blank, always last)."""
-
     def __init__(self, n_out, d_model=176, n_layers=16, dropout=0.1):
         super().__init__()
         self.encoder = ConformerEncoder(80, n_layers, d_model, 4, 4, 31, dropout)
@@ -211,7 +200,6 @@ class QaafASR(nn.Module):
         x, lengths = self.encoder(feats, lengths)
         logits = self.decoder.decoder_layers(x.transpose(1, 2)).transpose(1, 2)
         return logits.float().log_softmax(dim=-1), lengths
-
 
 def load_nemo_weights(model: QaafASR, ckpt_path: str, keep_head: bool):
     """Load NeMo's model_weights.ckpt. With keep_head=False the original word-piece output layer is skipped."""
