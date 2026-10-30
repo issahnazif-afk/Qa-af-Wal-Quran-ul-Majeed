@@ -32,7 +32,7 @@ for r in TEST_RECITERS:
     log(f'{r}: WER {m["wer"]:.1f}%  tolerant WER {m["tolerant_wer"]:.1f}%  letter error {m["cer"]:.1f}%  ({len(c.items)} ayahs, never heard in training)')
 
 # speed on one CPU thread, 6 seconds of audio (what a phone works on at a time)
-model_cpu = model.cpu(); torch.set_num_threads(1)
+model_cpu = model.cpu().eval(); torch.set_num_threads(1)   # eval: keep BatchNorm statistics fixed (evaluate() switches back to training mode)
 x = torch.randn(1, 80, 600); l = torch.tensor([600])
 with torch.no_grad():
     for _ in range(2): model_cpu(x, l)

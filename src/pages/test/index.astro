@@ -289,9 +289,10 @@ const meta = getMeta();
     import { getJson, pad, settings, store, audioUrl } from '../../lib/client.mjs';
     import { tokenize, normalize, matchAt, THRESHOLDS } from '../../lib/recite.mjs';
     import { createFollower } from '../../lib/follow.mjs';
-    import { getSpeechRecognition } from '../../lib/speech.mjs';
+    import { getSpeechRecognition, tuneRecognition } from '../../lib/speech.mjs';
     import { u } from '../../lib/url.mjs';
     import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
+    import { attachSwipe } from '../../lib/swipe.mjs';
 
     const $ = (id) => document.getElementById(id);
     const SR = getSpeechRecognition();
@@ -891,13 +892,7 @@ const meta = getMeta();
         const p = Math.min(604, Math.max(1, shownPage + delta));
         if (p !== shownPage) { await renderPage(p, true); syncBack(); }
       }
-      stage.addEventListener('touchstart', (e) => { sx = e.touches[0].clientX; sy = e.touches[0].clientY; }, { passive: true });
-      stage.addEventListener('touchend', (e) => {
-        if (sx === null) return;
-        const dx = e.changedTouches[0].clientX - sx, dy = e.changedTouches[0].clientY - sy;
-        sx = null;
-        if (Math.abs(dx) > 60 && Math.abs(dx) > Math.abs(dy) * 1.5) peek(dx > 0 ? 1 : -1);   // swipe right = next page
-      });
+      attachSwipe(stage, { target: () => stage.querySelector('.paper'), onSwipe: (d) => peek(d) });
       $('back-place').addEventListener('click', async () => { const p = homePage(); if (p) { await renderPage(p, true); updateCurrent(); } syncBack(); });
       document.addEventListener('ql:script', async () => { if (flat.length && shownPage) { await renderPage(shownPage, false); updateCurrent(); } });
       setInterval(syncBack, 800);
@@ -935,7 +930,7 @@ const meta = getMeta();
     }
     function startListening() {
       if (!SR || listening) return;
-      rec = new SR();
+      rec = tuneRecognition(new SR());
       rec.lang = 'ar-SA';
       rec.continuous = true;
       rec.interimResults = true;

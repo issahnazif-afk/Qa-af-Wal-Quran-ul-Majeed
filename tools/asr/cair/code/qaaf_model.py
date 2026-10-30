@@ -82,8 +82,12 @@ class RelPositionalEncoding(nn.Module):
         self.center = max_len - 1                                     # index of position 0
 
     def forward(self, x):
-        L = x.size(1)
-        return x * self.xscale, self.pe[:, self.center - L + 1:self.center + L].to(x.dtype)
+        # Index the table with tensors built from x (not Python numbers), so the ONNX export
+        # works for any length instead of freezing the length it was exported with.
+        a = torch.cumsum(torch.ones_like(x[0, :, 0], dtype=torch.long), dim=0) - 1      # 0 .. L-1
+        n = a[-1:]                                                                       # L-1
+        idx = torch.cat([self.center - n + a, self.center + 1 + a[:-1]])                 # positions L-1 .. -(L-1)
+        return x * self.xscale, self.pe.index_select(1, idx).to(x.dtype)
 
 
 class RelPositionMultiHeadAttention(nn.Module):
@@ -112,7 +116,8 @@ class RelPositionMultiHeadAttention(nn.Module):
         v = self.linear_v(x).view(b, t, self.h, self.dk).transpose(1, 2)
         p = self.linear_pos(pos_emb).view(1, -1, self.h, self.dk).transpose(1, 2)
         ac = (q + self.pos_bias_u).transpose(1, 2) @ k.transpose(-2, -1)
-        bd = self.rel_shift((q + self.pos_bias_v).transpose(1, 2) @ p.transpose(-2, -1))[:, :, :, :t]
+        keep = torch.cumsum(torch.ones_like(x[0, :, 0], dtype=torch.long), dim=0) - 1   # first t columns, ONNX-safe
+        bd = self.rel_shift((q + self.pos_bias_v).transpose(1, 2) @ p.transpose(-2, -1)).index_select(3, keep)
         scores = (ac + bd) / math.sqrt(self.dk)
         m = mask.unsqueeze(1)
         scores = scores.masked_fill(m, -10000.0)

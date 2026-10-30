@@ -236,3 +236,14 @@ html[data-app] .practice.page, html[data-app] .practice .stage { padding-left: 0
 html[data-app] .practice.narrow { padding-left: 0; padding-right: 0; }
 html[data-app] .practice .summary-bar { margin: 0 10px; padding: 8px 12px; }
 html[data-app] .practice .summary-bar #summary-text { font-size: 13px; }
+
+/* ── legible, page-shaped mushaf pages everywhere ─────────────── */
+.mp .mp-lines { color: #141210; text-rendering: optimizeLegibility; -webkit-font-smoothing: antialiased; -moz-osx-font-smoothing: grayscale; font-kerning: normal; font-feature-settings: "kern" 1, "liga" 1, "calt" 1; }
+:root[data-theme="dark"] .mp .mp-lines { color: #F1ECE0; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .mp .mp-lines { color: #F1ECE0; } }
+/* in the app the page keeps a printed page's shape (about 2 : 3) so lines are never stretched across a wide screen */
+html[data-app] .practice .paper { width: min(100%, calc((100dvh - 250px) * 0.7)); max-width: 100%; margin: 0 auto; box-sizing: border-box; }
+html[data-app] .mushaf-v2 .paper { width: min(100%, calc((100dvh - 150px) * 0.7)); max-width: 100%; flex: 0 1 auto; margin: 0 auto; box-sizing: border-box; }
+html[data-app] .practice .stage, html[data-app] .mushaf-v2 .spread { display: flex; justify-content: center; }
+.mp.dragging, .spread.dragging { transition: none !important; }
+.mp.settle { transition: transform .22s cubic-bezier(.2,.7,.2,1), opacity .22s; }

@@ -121,7 +121,7 @@ export async function fitPaper(paper) {
   if (!box) return;
   if (paper.classList.contains('mp-flowpage')) { paper.style.setProperty('--mfs', `${Math.min(32, Math.max(18, box.clientWidth / 18))}px`); return; }
   const lines = [...box.querySelectorAll('.mp-line:not(.mp-banner)')];
-  let fs = Math.min(36, Math.max(13, box.clientWidth / 16.5));
+  let fs = Math.min(52, Math.max(14, box.clientWidth / 16));
   paper.style.setProperty('--mfs', `${fs}px`);
   for (let k = 0; k < 30; k++) {
     // allow for the small padding around each word on the Recite and Hifz pages

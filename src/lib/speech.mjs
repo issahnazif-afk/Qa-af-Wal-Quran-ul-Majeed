@@ -76,3 +76,17 @@ class NativeRecognition {
     this.finish();
   }
 }
+
+// Chrome can recognise speech on the device itself (no network round trip, lower delay) where a
+// language pack is installed. Use it when the browser says Arabic is available locally.
+let localSpeech = false;
+(async () => {
+  try {
+    const S = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (S?.available) localSpeech = (await S.available({ langs: ['ar-SA'], processLocally: true })) === 'available';
+  } catch {}
+})();
+export function tuneRecognition(rec) {
+  try { if (localSpeech && 'processLocally' in rec) rec.processLocally = true; } catch {}
+  return rec;
+}

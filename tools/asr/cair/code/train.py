@@ -85,6 +85,7 @@ def collate(corpus, idx, items, device, augment):
 
 @torch.no_grad()
 def evaluate(model, corpus, items, device, max_frames, limit=None):
+    was_training = model.training
     model.eval()
     tot = np.zeros(5)
     items = items[:limit] if limit else items
@@ -96,7 +97,7 @@ def evaluate(model, corpus, items, device, max_frames, limit=None):
         for k, i in enumerate(idx):
             hyp = decode(ids[k, :int(ol[k])])
             tot += np.array(scores(items[i][5], hyp))
-    model.train()
+    model.train(was_training)
     we, ce, te, nw, nc = tot
     return {'wer': 100 * we / max(1, nw), 'cer': 100 * ce / max(1, nc), 'tolerant_wer': 100 * te / max(1, nw)}
 
@@ -177,8 +178,8 @@ def main():
                 torch.save({'model': model.state_dict(), 'opt': opt.state_dict(), 'scaler': scaler.state_dict(), 'state': state}, last)
                 log('TIME BUDGET REACHED, saved; submit the training job again to continue' if not a.max_steps else 'QUICK TEST STEPS DONE')
                 if a.max_steps:
-                    log('validation:', evaluate(model, val_corpus, val_items, device, a.max_frames, 50))
-                    torch.save({'model': model.state_dict(), 'letters': LETTERS}, os.path.join(ck_dir, 'best.pt'))
+                    torch.save({'model': model.state_dict(), 'letters': LETTERS, 'epoch': state['epoch']}, os.path.join(ck_dir, 'best.pt'))
+                    log('quick-test model saved:', os.path.join(ck_dir, 'best.pt'))
                 return
         state['epoch'] += 1; state['batch_in_epoch'] = 0
         m = evaluate(model, val_corpus, val_items, device, a.max_frames)
