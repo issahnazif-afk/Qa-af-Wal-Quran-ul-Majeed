@@ -632,14 +632,16 @@ const meta = getMeta();
       const backlog = queue.length;
       // quick enough to keep pace with normal recitation, quicker still when speech runs ahead
       // keeps pace from slow tartil to fast hadr: the further the reader is ahead, the faster the ink
-      const dur = backlog > 6 ? 50 : backlog > 2 ? 100 : Math.min(220, Math.max(120, letters * 20));
-      const gap = backlog > 6 ? 0 : backlog > 2 ? 10 : Math.min(50, Math.max(20, letters * 7));
+      // "Instant" (default): each word appears the moment it is heard. "Smooth": a short ink-flow.
+      const smooth = (document.documentElement.dataset.reveal || 'instant') === 'smooth';
+      const dur = !smooth ? (backlog > 1 ? 0 : 60) : backlog > 6 ? 50 : backlog > 2 ? 100 : Math.min(220, Math.max(120, letters * 20));
+      const gap = !smooth ? 0 : backlog > 6 ? 0 : backlog > 2 ? 10 : Math.min(50, Math.max(20, letters * 7));
       return { dur, gap };
     }
     function revealStep(w) {
       return async () => {
         if (w.page !== shownPage) {
-          await wait(Math.max(0, lastInkEnd - Date.now()) + (reduceMotion ? 0 : 150));
+          await wait(Math.max(0, lastInkEnd - Date.now()) + (reduceMotion || document.documentElement.dataset.reveal !== 'smooth' ? 0 : 150));
           await renderPage(w.page, true);
         }
         if (!w.el?.isConnected) await renderPage(w.page, false);   // e.g. the next surah was added after this page was drawn
@@ -671,7 +673,7 @@ const meta = getMeta();
       const stage = $('stage');
       const olds = [...stage.querySelectorAll('.paper')];
       const old = olds[olds.length - 1];
-      const canAnimate = animate && old && !reduceMotion && typeof paper.animate === 'function';
+      const canAnimate = animate && old && !reduceMotion && typeof paper.animate === 'function' && document.documentElement.dataset.reveal === 'smooth';   // instant mode turns pages at once
       if (!canAnimate) { stage.replaceChildren(paper); stage.style.minHeight = ''; await fitPaper(paper); return; }
       const box = old.getBoundingClientRect();
       stage.style.position = 'relative';

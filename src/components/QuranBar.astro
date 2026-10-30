@@ -33,6 +33,12 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
         <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (not built yet)'}</option>
       </select>
     </label>
+    <label>Writing
+      <select id="qb-reveal" aria-label="How words appear">
+        <option value="instant">Instant (fastest)</option>
+        <option value="smooth">Smooth ink</option>
+      </select>
+    </label>
     <label>Listening
       <select id="qb-engine" aria-label="Listening engine">
         <option value="speech">Phone / browser speech</option>
@@ -109,6 +115,12 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
   const saved = store.get('script', 'plain');
   scriptSel.value = saved === 'tajweed' && bar.dataset.tajweed ? 'tajweed' : 'plain';
   document.documentElement.dataset.script = scriptSel.value;
+  // how recited words appear: instantly, or with a short ink animation
+  const revSel = document.getElementById('qb-reveal');
+  revSel.value = store.get('reveal', 'instant');
+  document.documentElement.dataset.reveal = revSel.value;
+  revSel.addEventListener('change', () => { store.set('reveal', revSel.value); document.documentElement.dataset.reveal = revSel.value; });
+
   // listening engine: the phone's speech service, or the Qāf model running on the device
   const engSel = document.getElementById('qb-engine');
   const engSaved = store.get('engine', 'speech');
