@@ -1,176 +1,1073 @@
 ---
-import Base from '../layouts/Base.astro';
-import { getMeta } from '../lib/data.mjs';
+import fs from 'node:fs';
+import path from 'node:path';
+import '@fontsource/manrope/300.css';
+import '@fontsource/manrope/400.css';
+import '@fontsource/manrope/500.css';
+import '@fontsource/manrope/600.css';
+import '@fontsource/manrope/700.css';
+import '@fontsource/manrope/800.css';
+import '@fontsource/playfair-display/500.css';
+import '@fontsource/playfair-display/600.css';
+import '@fontsource/playfair-display/500-italic.css';
+import '@fontsource/playfair-display/600-italic.css';
+import '../styles/global.css';
+import '../styles/classroom.css';
+import '../styles/aic.css';
+import Sheikh from '../components/Sheikh.astro';
+import cfg from '../../site.config.mjs';
 import { u } from '../lib/url.mjs';
-const meta = getMeta();
-const resources = [
-  ['script', 'Quran script', 'The Uthmani Arabic text of all 6,236 ayahs, verified and unaltered.', 'Tanzil'],
-  ['translations', 'Translations', 'Ayah-by-ayah translations of the meanings.', 'AlQuran.cloud'],
-  ['recitations', 'Recitations', 'Ayah-by-ayah audio from several well-known reciters.', 'EveryAyah'],
-  ['morphology', 'Morphology', 'Root, lemma and part of speech for every word.', 'Quranic Arabic Corpus'],
-  ['wbw', 'Word by word', 'The meaning and transliteration of each word.', 'Quran Foundation'],
-  ['metadata', 'Metadata', 'Surah, juz, page and sajdah boundaries for the 604-page mushaf.', 'AlQuran.cloud'],
+
+const meta = JSON.parse(fs.readFileSync(path.join(process.cwd(), 'public/data/meta.json'), 'utf8'));
+const levels = [
+  ['beginner', 'Beginner', 'Gentle checking. The Sheikh waits 8 seconds before helping, and hints are allowed.'],
+  ['intermediate', 'Intermediate', 'Normal checking. The Sheikh helps after 6 seconds of silence.'],
+  ['advanced', 'Advanced', 'Strict checking of every word. The Sheikh helps after 5 seconds.'],
+  ['ijazah', 'Ijazah', 'Strictest. No hints, unclear words count as mistakes, and the Sheikh helps after 4 seconds.'],
 ];
 ---
-<Base active="home">
-  <style>
-    .hero { background: var(--surface); border-bottom: 1px solid var(--line); }
-    .hero .wrap { padding-top: 64px; padding-bottom: 56px; display: flex; flex-wrap: wrap; gap: 40px; align-items: center; }
-    .hero-text { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
-    h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; letter-spacing: -0.5px; }
-    .lede { margin: 0; font-size: 18px; color: var(--muted); max-width: 620px; }
-    .search-row { display: flex; gap: 8px; max-width: 640px; }
-    .search-row input { flex: 1 1 auto; min-width: 0; height: 52px; font-size: 16px; padding: 0 16px; border-radius: 10px; }
-    .search-row .btn { height: 52px; border-radius: 10px; padding: 0 24px; }
-    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
-    .resume { flex: 1 1 320px; min-width: 0; background: var(--accent-soft); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
-    .resume-label { font-size: 14px; font-weight: 600; color: var(--accent-strong); }
-    .resume .quran { font-size: 30px; line-height: 1.9; }
-    section.block { padding-top: 56px; display: flex; flex-direction: column; gap: 20px; }
-    .block-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; }
-    h2 { margin: 0; font-size: 28px; }
-    .tabs { display: flex; gap: 4px; background: var(--line); padding: 4px; border-radius: 10px; }
-    .tabs button { min-height: 44px; padding: 0 18px; border: none; border-radius: 8px; background: transparent; font: inherit; color: var(--ink); cursor: pointer; }
-    .tabs button[aria-selected="true"] { background: var(--surface); font-weight: 600; }
-    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
-    .surah { display: flex; align-items: center; gap: 16px; padding: 16px; text-decoration: none; color: var(--ink); }
-    .surah:hover { border-color: var(--accent); color: var(--ink); }
-    .num { width: 40px; height: 40px; flex: none; display: grid; place-items: center; position: relative; font-weight: 600; font-size: 14px; color: var(--accent); }
-    .num::before { content: ''; position: absolute; inset: 6px; border: 1.5px solid var(--accent); border-radius: 6px; transform: rotate(45deg); }
-    .surah-main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
-    .surah-main b { font-size: 16px; }
-    .surah-side { display: flex; flex-direction: column; align-items: end; white-space: nowrap; }
-    .surah-side .ar-ui { font-weight: 600; font-size: 18px; }
-    .small { font-size: 13px; color: var(--muted); }
-    .juz { padding: 16px; text-decoration: none; color: var(--ink); display: flex; justify-content: space-between; gap: 12px; }
-    .page-jump { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 20px; }
-    .res { display: flex; flex-direction: column; gap: 8px; padding: 22px; text-decoration: none; color: var(--ink); min-height: 170px; }
-    .res:hover { border-color: var(--accent); color: var(--ink); }
-    .res b { font-size: 18px; }
-    .res .src { margin-top: auto; font-size: 13px; color: var(--muted); }
-  </style>
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>{cfg.appName}</title>
+  <meta name="description" content="A virtual classroom where the Sheikh listens to your recitation, for Hifz tests and reading from the mushaf." />
+  <meta name="theme-color" content="#0E6B4E" />
+  <link rel="icon" href={u('favicon-64.png')} type="image/png" />
+  <link rel="apple-touch-icon" href={u('apple-touch-icon.png')} />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=IBM+Plex+Sans+Arabic:wght@400;600&display=swap" />
+  <link rel="preload" href={u('fonts/UthmanicHafs_V22.ttf')} as="font" type="font/ttf" crossorigin />
+  <style is:inline set:html={`@font-face{font-family:"KFGQPC Hafs";src:url("${u('fonts/UthmanicHafs_V22.ttf')}") format("truetype");font-display:swap}`}></style>
+</head>
+<body class="cr" data-log-url={cfg.classLogUrl} data-local-asr={meta.localAsr ? '1' : ''} data-default-reciter={cfg.defaultReciter}>
 
-  <section class="hero">
-    <div class="wrap">
-      <div class="hero-text">
-        <h1>Read, listen to and study the Quran, from open and authentic sources.</h1>
-        <p class="lede">Every word of text, translation and recitation here comes from free public datasets, credited on each page.</p>
-        <form action={u('search/')} method="get" role="search" style="display:flex;flex-direction:column;gap:8px">
-          <label class="field-label" for="home-q">Search a surah, an ayah (like 2:255), a page, or a word</label>
-          <div class="search-row">
-            <input class="field" id="home-q" name="q" type="search" placeholder="Al-Kahf, 18:10, page 293, mercy" autocomplete="off" />
-            <button class="btn btn-primary" type="submit">Search</button>
-          </div>
-        </form>
-        <div class="chips">
-          <a class="chip" href={u('surah/18/')}>Al-Kahf</a>
-          <a class="chip" href={u('surah/36/')}>Ya-Sin</a>
-          <a class="chip" href={u('surah/2/#a255')}>Ayat al-Kursi, 2:255</a>
-          <a class="chip" href={u('surah/67/')}>Al-Mulk</a>
+  <!-- 1 · sign in ─────────────────────────────────────────── -->
+  <section class="screen signin" id="s-signin" aria-labelledby="si-h">
+    <div class="si-brand">
+      <div class="brand big"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="64" height="64" /><span><b>Al-Huda Islamic Weekend School</b><small>Ta'aleem Virtual Classroom</small></span></div>
+      <div class="si-hero">
+        <p class="eyebrow"><span class="star" aria-hidden="true"></span>Al-Huda Islamic Centre (AIC)</p>
+        <p class="display">Recite, read and <em>learn</em> with the Sheikh</p>
+        <p class="si-text">Recite from memory for a Hifz test, read from the mushaf, or learn the Arabic letters. The Sheikh follows every word and corrects you as you go.</p>
+        <div class="stats">
+          <div class="stat"><b>3</b><span>Classroom activities</span></div>
+          <div class="stat"><b>4</b><span>Levels, ages 4 to 16</span></div>
+          <div class="stat"><b>604</b><span>Pages of the mushaf</span></div>
         </div>
       </div>
-      <div class="resume" id="resume" hidden>
-        <span class="resume-label">Continue reading</span>
-        <div class="quran" id="resume-ar"></div>
-        <span id="resume-meta" style="font-size:15px"></span>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <a class="btn btn-primary" id="resume-link" href="#">Resume</a>
-          <a class="btn" id="resume-page" href="#">Open in mushaf</a>
+      <p class="si-foot">Works on a desktop or laptop with a camera and microphone, in Chrome or Edge.</p>
+    </div>
+    <div class="si-form-wrap">
+      <div class="si-form">
+        <div class="si-tabs" role="tablist" aria-label="Sign in or create an account">
+          <button type="button" role="tab" id="tab-in" aria-selected="true" aria-controls="signin">Sign in</button>
+          <button type="button" role="tab" id="tab-new" aria-selected="false" aria-controls="signup">Create account</button>
         </div>
+        <p class="demo-note" id="demo-note" hidden>Demo mode: the class log is not connected yet, so any username works and sessions are not saved.</p>
+
+        <form id="signin" class="si-pane" role="tabpanel" aria-labelledby="tab-in" novalidate>
+          <div>
+            <h1 id="si-h">Assalamu alaikum</h1>
+            <p class="muted">Sign in with your own username and password.</p>
+          </div>
+          <label class="fld"><span>Username</span><input id="in-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="maryam.a" required /></label>
+          <label class="fld"><span>Password</span><input id="in-pass" type="password" autocomplete="current-password" required /></label>
+          <p class="err" id="in-err" role="alert"></p>
+          <button class="btn btn-primary big" type="submit" id="in-go">Sign in</button>
+          <p class="fine">New here? Choose <b>Create account</b> above. Forgot your password? Ask your teacher to reset it.</p>
+        </form>
+
+        <form id="signup" class="si-pane" role="tabpanel" aria-labelledby="tab-new" novalidate hidden>
+          <div>
+            <h1>Create your account</h1>
+            <p class="muted">You only do this once. Your teacher gives you your level’s class password.</p>
+          </div>
+          <label class="fld"><span>Full name</span><input id="up-name" type="text" autocomplete="name" placeholder="Maryam Abdullah" required /></label>
+          <fieldset class="fld gender" id="up-gender">
+            <legend>I am a</legend>
+            <div class="gender-row">
+              <label class="gpick"><input type="radio" name="up-g" value="m" /><span>Boy</span></label>
+              <label class="gpick"><input type="radio" name="up-g" value="f" /><span>Girl</span></label>
+            </div>
+            <small class="hint">So the Sheikh can speak to you properly: أَحْسَنْتَ for a boy, أَحْسَنْتِ for a girl.</small>
+          </fieldset>
+          <div class="fld-row">
+            <label class="fld"><span>Your level</span><select id="up-class"><option value="">Loading…</option></select></label>
+            <label class="fld"><span>Class password</span><input id="up-cpass" type="password" autocomplete="off" required /></label>
+          </div>
+          <label class="fld"><span>Choose a username</span><input id="up-user" type="text" autocomplete="username" autocapitalize="none" spellcheck="false" placeholder="maryam.a" required /><small class="hint">3 to 24 letters or numbers; you may use . _ or - but no spaces.</small></label>
+          <div class="fld-row">
+            <label class="fld"><span>Choose a password</span><input id="up-pass" type="password" autocomplete="new-password" required /><small class="hint">At least 6 characters.</small></label>
+            <label class="fld"><span>Type it again</span><input id="up-pass2" type="password" autocomplete="new-password" required /></label>
+          </div>
+          <p class="err" id="up-err" role="alert"></p>
+          <button class="btn btn-primary big" type="submit" id="up-go">Create account</button>
+        </form>
+        <form id="ask-gender" class="si-pane" novalidate hidden>
+          <div>
+            <h1>One quick question</h1>
+            <p class="muted">So the Sheikh speaks to you properly, tell us once:</p>
+          </div>
+          <fieldset class="fld gender">
+            <legend>I am a</legend>
+            <div class="gender-row">
+              <label class="gpick"><input type="radio" name="ask-g" value="m" /><span>Boy</span></label>
+              <label class="gpick"><input type="radio" name="ask-g" value="f" /><span>Girl</span></label>
+            </div>
+          </fieldset>
+          <p class="err" id="ask-err" role="alert"></p>
+          <button class="btn btn-primary big" type="submit" id="ask-go">Continue</button>
+        </form>
+        <p class="fine">When you join a session, a photo is taken from your camera and saved with your session record for your teacher. Video and audio are not recorded.</p>
       </div>
     </div>
   </section>
 
-  <div class="wrap">
-    <section class="block" aria-labelledby="browse-h">
-      <div class="block-head">
-        <h2 id="browse-h">Browse the Quran</h2>
-        <div class="tabs" role="tablist" aria-label="Browse by">
-          <button type="button" role="tab" aria-selected="true" aria-controls="tab-surah" id="t-surah">Surah</button>
-          <button type="button" role="tab" aria-selected="false" aria-controls="tab-juz" id="t-juz">Juz</button>
-          <button type="button" role="tab" aria-selected="false" aria-controls="tab-page" id="t-page">Page</button>
+  <!-- 2 · camera and microphone ──────────────────────────── -->
+  <section class="screen flow" id="s-check" hidden aria-labelledby="ck-h">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Ta'aleem Virtual Classroom</small></span></div>
+      <ol class="steps"><li class="on">1 · Camera and mic</li><li>2 · Set up</li><li>3 · Recite</li></ol>
+    </header>
+    <div class="flow-main">
+      <div>
+        <h1 id="ck-h">Assalamu alaikum, <span data-name></span></h1>
+        <p class="muted lead">Let's check you can be seen and heard before the Sheikh starts.</p>
+      </div>
+      <div class="ck-grid">
+        <div class="ck-left">
+          <div class="cam-box">
+            <video id="cam" autoplay muted playsinline></video>
+            <svg class="cam-guide" viewBox="0 0 200 240" aria-hidden="true"><ellipse cx="100" cy="110" rx="70" ry="92"></ellipse></svg>
+            <span class="cam-tag top" id="cam-hint">Keep your face inside the outline</span>
+            <span class="cam-tag bottom" id="cam-name">Camera</span>
+            <p class="cam-off" id="cam-off" hidden></p>
+          </div>
+          <div class="card snap-row">
+            <img id="snap" alt="Your login snapshot" hidden />
+            <div class="snap-ph" id="snap-ph" aria-hidden="true"></div>
+            <div class="grow">
+              <p class="b" id="snap-title">Taking your login snapshot…</p>
+              <p class="muted small">This photo goes into your session record so your teacher knows it was you.</p>
+            </div>
+            <button class="btn" type="button" id="retake" disabled>Retake</button>
+          </div>
+        </div>
+        <aside class="ck-right">
+          <div class="card checks">
+            <div class="check" id="ck-cam"><span class="ck-ic" aria-hidden="true"></span><div><p class="b">Camera</p><p class="muted small" data-t>Starting…</p></div></div>
+            <div class="check" id="ck-mic"><span class="ck-ic" aria-hidden="true"></span><div class="grow"><p class="b">Microphone</p><p class="muted small" data-t>Say “Bismillah” to test</p><div class="meter" id="meter" aria-label="Microphone level"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div></div>
+            <div class="check" id="ck-spk"><span class="ck-ic" aria-hidden="true"></span><div class="grow"><p class="b">Speakers</p><p class="muted small" data-t>So you can hear the Sheikh</p></div><button class="btn small-btn" type="button" id="tone">Play test</button></div>
+            <div class="check" id="ck-fast"><span class="ck-ic" aria-hidden="true"></span><div><p class="b">Fast listening</p><p class="muted small" data-t>Checking…</p></div></div>
+            <div class="check" id="ck-face"><span class="ck-ic" aria-hidden="true"></span><div><p class="b">Facing the screen</p><p class="muted small" data-t>Loading face check…</p></div></div>
+          </div>
+          <div class="card soft">
+            <p class="b accent-ink">What your teacher will see</p>
+            <ul class="tight">
+              <li>Your name, login time and snapshot</li>
+              <li>What you recited and for how long</li>
+              <li>Your most frequent mistakes and a short review</li>
+            </ul>
+            <p class="muted small">Video and audio are not recorded.</p>
+          </div>
+          <p class="err" id="ck-err" role="alert"></p>
+          <button class="btn btn-primary big" type="button" id="to-setup" disabled>Continue</button>
+          <button class="btn link" type="button" id="ck-back">Back</button>
+        </aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- 3 · session setup ──────────────────────────────────── -->
+  <section class="screen flow" id="s-setup" hidden aria-labelledby="su-h">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Ta'aleem Virtual Classroom</small></span></div>
+      <ol class="steps"><li>1 · Camera and mic</li><li class="on">2 · Set up</li><li>3 · Recite</li></ol>
+    </header>
+    <div class="flow-main">
+      <div>
+        <h1 id="su-h">Hifz test</h1>
+        <p class="muted lead">Choose your level and what to recite.</p>
+      </div>
+      <div>
+        <h2 class="h2">Your level</h2>
+        <div class="cards4" role="radiogroup" aria-label="Level">
+          {levels.map(([id, name, text]) => (
+            <button type="button" class="pick" role="radio" aria-checked={id === 'intermediate' ? 'true' : 'false'} data-level={id}><b>{name}</b><span>{text}</span></button>
+          ))}
+        </div>
+        <p class="muted small" style="margin-top:8px">The Sheikh checks every word: wrong, forgotten or skipped words, hints and unclear words. Tajweed rules are not checked yet.</p>
+      </div>
+      <div class="card fields">
+        <label class="fld"><span>From surah</span><select id="su-from">{meta.surahs.map((s) => <option value={s.n} data-ayahs={s.ayahs}>{s.n}. {s.en}</option>)}</select></label>
+        <label class="fld narrow-f"><span>From ayah</span><input id="su-a1" type="number" min="1" value="1" /></label>
+        <label class="fld"><span>To surah</span><select id="su-to">{meta.surahs.map((s) => <option value={s.n} data-ayahs={s.ayahs}>{s.n}. {s.en}</option>)}</select></label>
+        <label class="fld narrow-f"><span>To ayah</span><input id="su-a2" type="number" min="1" value="30" /></label>
+        <label class="fld" data-hifz-only><span>Questions</span><select id="su-q"><option value="">Standard</option><option>1</option><option>2</option><option>3</option><option>5</option><option>8</option></select></label>
+        <label class="fld"><span>Sheikh's voice</span><select id="su-voice">{cfg.reciters.map((r) => <option value={r.id}>{r.name}</option>)}</select></label>
+      </div>
+      <p class="err" id="su-err" role="alert"></p>
+      <div class="row">
+        <button class="btn btn-primary big" type="button" id="start">Start Hifz test</button>
+        <button class="btn link" type="button" id="su-back">Back</button>
+        <span class="muted small push" id="su-sum"></span>
+      </div>
+    </div>
+  </section>
+
+  <!-- 4 · the classroom ──────────────────────────────────── -->
+  <section class="screen room" id="s-class" hidden aria-label="Classroom">
+    <header class="topbar room-bar">
+      <img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="40" height="40" />
+      <div class="rb-title"><b id="c-title">Hifz test</b><small id="c-sub"></small></div>
+      <div class="dots" id="c-dots" aria-hidden="true"></div>
+      <span class="muted small" id="c-q"></span>
+      <span class="pill push" id="c-level">Intermediate</span>
+      <span class="timer" id="c-timer">00:00</span>
+      <button class="btn danger" type="button" id="c-end">End session</button>
+    </header>
+    <div class="away" id="away" role="alert" hidden>
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"></path><circle cx="12" cy="12" r="3"></circle></svg>
+      <span><b>The Sheikh has paused the test.</b> <span id="away-why">You seem to be looking away from the screen.</span> Look at the Sheikh, then continue.</span>
+      <button class="btn away-btn" type="button" id="away-resume">I'm ready, continue</button>
+    </div>
+    <div class="room-main">
+      <aside class="room-left">
+        <div class="tiles">
+          <div class="tile sheikh-tile" id="sheikh-tile"><Sheikh /><span class="tile-tag" id="sheikh-tag">Sheikh</span></div>
+          <div class="tile self-tile" id="self-tile"><video id="cam2" autoplay muted playsinline></video><span class="tile-tag dark"><i class="dot" id="face-dot"></i><span id="self-label">You</span></span></div>
+        </div>
+        <div class="bubble" aria-live="polite"><span class="ar" id="say-ar" lang="ar" dir="rtl"></span><span class="en" id="say-en"></span></div>
+        <section class="card notes">
+          <div class="notes-h"><h2>Sheikh's notes</h2><span class="muted small" id="notes-n">None yet</span></div>
+          <ol id="notes" class="notes-list"></ol>
+        </section>
+      </aside>
+      <section class="room-right">
+        <div class="stage" id="stage"></div>
+        <p class="status" id="status" aria-live="polite"></p>
+        <p class="where" id="where"></p>
+        <div class="controls">
+          <button class="btn mic" type="button" id="mic" aria-pressed="false"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"></rect><path d="M5 11a7 7 0 0 0 14 0M12 18v3"></path></svg><span id="mic-t">Microphone</span></button>
+          <button class="btn" type="button" id="hint">Hint</button>
+          <button class="btn" type="button" id="repeat" data-hifz-only>Repeat the opening</button>
+          <button class="btn" type="button" id="listen" data-reading-only>Listen</button>
+          <button class="btn" type="button" id="restart" data-reading-only>Restart ayah</button>
+          <button class="btn" type="button" id="skip" data-hifz-only>Skip question</button>
+          <button class="btn" type="button" id="camtoggle" aria-pressed="true">Camera</button>
+        </div>
+        <div class="legend">
+          <span><b class="g">Green</b> read correctly</span>
+          <span><b class="r">Red</b> mistake or prompted</span>
+          <span><b class="a">Gold</b> hint</span>
+          <span>Dotted · unclear</span>
+        </div>
+      </section>
+    </div>
+  </section>
+
+
+
+  <!-- Classroom home (after sign-in): one card per activity ─ -->
+  <section class="screen flow" id="s-home" hidden aria-labelledby="home-h">
+   <div class="hero">
+    <header class="topbar on-dark">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Ta'aleem Virtual Classroom</small></span></div>
+      <span class="push who"><span class="pill gold" data-level-pill>Level 1</span><span data-fullname></span><button class="btn small-btn" type="button" data-signout>Sign out</button></span>
+    </header>
+    <div class="hero-body">
+      <p class="eyebrow"><span class="star" aria-hidden="true"></span>Ta'aleem Virtual Classroom</p>
+      <h1 class="display" id="home-h">Assalamu alaikum, <em data-first></em></h1>
+      <p class="hero-lead">Your Classroom. What would you like to do today?</p>
+      <div class="stats">
+        <div class="stat"><b data-level-pill>Level 1</b><span>Your class</span></div>
+        <div class="stat"><b id="h-hijri">—</b><span id="h-greg"></span></div>
+      </div>
+    </div>
+   </div>
+    <div class="flow-main">
+      <p class="eyebrow dark"><span class="star" aria-hidden="true"></span>Choose an activity</p>
+      <div class="acts" id="acts"></div>
+    </div>
+  </section>
+
+  <!-- Alif Ba · Jannah Garden ─────────────────────────────── -->
+  <section class="screen flow" id="s-hub" hidden aria-labelledby="hub-title">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Classroom · Alif Ba</small></span></div>
+      <nav class="tabs-nav" aria-label="Sections"><button type="button" class="navb" data-go="home">‹ Classroom</button></nav>
+      <span class="push who"><span class="pill gold" data-level-pill>Level 1</span><span data-fullname></span><button class="btn small-btn" type="button" data-signout>Sign out</button></span>
+    </header>
+    <div class="flow-main hub">
+      <section class="hub-main">
+        <div class="row"><h1 id="hub-title">My Jannah Garden</h1><span class="muted push" id="hub-count"></span></div>
+        <div class="garden">
+          <svg class="garden-arch" viewBox="0 0 800 46" aria-hidden="true"><g fill="none" stroke="#C9A24A" stroke-width="2"><path d="M0 40 H300 M500 40 H800"></path><path d="M300 40 Q300 6 400 6 Q500 6 500 40"></path><path d="M330 40 Q330 18 400 18 Q470 18 470 40"></path></g></svg>
+          <p class="garden-dhikr" lang="ar" dir="rtl">سُبْحَانَ ٱللَّهِ وَبِحَمْدِهِ</p>
+          <div class="plots" id="plots"></div>
+          <p class="garden-hadith">The Prophet ﷺ said: whoever says <i>SubhanAllahi wa bihamdihi</i>, a date palm is planted for him in Paradise. (At-Tirmidhi)</p>
+        </div>
+      </section>
+      <aside class="hub-side">
+        <div class="card lesson-card">
+          <span class="muted small" id="lesson-label"></span>
+          <h2 id="lesson-name"></h2>
+          <p class="muted" id="lesson-text"></p>
+          <div class="lesson-go" id="lesson-go">
+            <button class="btn btn-primary big" type="button" id="go-letters">Learn the letters</button>
+            <button class="btn lantern-btn big" type="button" id="go-lanterns">Play Noor Lanterns</button>
+          </div>
+          <p class="muted small" id="lesson-soon" hidden>This lesson's games are coming soon, in sha Allah.</p>
+        </div>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Alif Ba · Lesson 1, the letters and their names ──────── -->
+  <section class="screen flow" id="s-letters" hidden aria-labelledby="lt-h">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Classroom · Alif Ba · Lesson 1</small></span></div>
+      <nav class="tabs-nav" aria-label="Sections"><button type="button" class="navb" data-go="hub">‹ Alif Ba</button></nav>
+      <span class="push who"><span class="pill gold" data-level-pill>Level 1</span><span data-fullname></span></span>
+    </header>
+    <div class="flow-main letters">
+      <div class="row"><h1 id="lt-h">The Arabic letters and their names</h1><span class="muted push" id="lt-count"></span></div>
+      <div class="lt-wrap">
+        <div class="board" id="board" dir="rtl" role="list" aria-label="The 28 letters"></div>
+        <aside class="lt-card card">
+          <div class="lt-frame"><span class="lt-big" id="lt-big" lang="ar">ا</span></div>
+          <p class="lt-name" id="lt-name" lang="ar" dir="rtl">أَلِف</p>
+          <p class="lt-latin" id="lt-latin">Alif</p>
+          <button class="btn btn-primary big" type="button" id="lt-hear">Hear its name</button>
+          <p class="muted small" id="lt-stars"></p>
+          <button class="btn lantern-btn big" type="button" id="lt-play">Play Noor Lanterns</button>
+        </aside>
+      </div>
+      <p class="muted small">Tap a letter to see its name and hear it. A letter is known once you have lit its lantern right the first time, twice.</p>
+    </div>
+  </section>
+
+  <!-- Alif Ba · Noor Lanterns ─────────────────────────────── -->
+  <section class="screen game" id="s-game" hidden aria-label="Noor Lanterns">
+    <svg class="night" viewBox="0 0 1440 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+        <circle cx="1270" cy="120" r="46" fill="#FBE3A6"></circle><circle cx="1292" cy="106" r="42" fill="#0F2A24"></circle>
+        <g fill="#FBE3A6" opacity=".7"><circle cx="180" cy="90" r="2"></circle><circle cx="420" cy="60" r="1.6"></circle><circle cx="760" cy="40" r="2"></circle><circle cx="1010" cy="80" r="1.6"></circle><circle cx="300" cy="190" r="1.4"></circle></g>
+        <g fill="#16382F"><path d="M0 900 V700 H140 V620 Q140 540 230 520 Q320 540 320 620 V700 H440 V620 Q440 540 530 520 Q620 540 620 620 V700 H820 V620 Q820 540 910 520 Q1000 540 1000 620 V700 H1120 V620 Q1120 540 1210 520 Q1300 540 1300 620 V700 H1440 V900 Z"></path><rect x="1370" y="380" width="30" height="320"></rect><path d="M1362 380 H1408 L1385 330 Z"></path></g>
+        <path d="M0 700 H1440" stroke="#C9A24A" stroke-width="2" opacity=".45"></path>
+      </svg>
+    <header class="g-bar">
+      <button type="button" class="g-round" id="g-back" aria-label="Back to my garden"><svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"></path></svg></button>
+      <span class="g-title"><b>Noor Lanterns</b><small id="g-sub">Lesson 1 · Level 1</small></span>
+      <div class="g-dots" id="g-dots" aria-hidden="true"></div>
+      <div class="g-score" id="g-score" hidden><span><small>Score</small><b id="g-pts">0</b></span><span><small>Streak</small><b class="gold-t" id="g-streak">×0</b></span><span><small>Your best</small><b id="g-best">0</b></span></div>
+      <button type="button" class="g-round push" id="g-mute" aria-pressed="false" aria-label="Sound on"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z" fill="currentColor"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg></button>
+    </header>
+    <div class="g-timer" id="g-timer" hidden><i></i></div>
+    <div class="g-main">
+      <aside class="g-sheikh">
+        <div class="g-sheikh-art"><Sheikh /></div>
+        <p class="g-bubble" id="g-bubble" lang="ar" dir="rtl"></p>
+        <button type="button" class="g-hear" id="g-hear" aria-label="Hear the letter again"><svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5Z" fill="currentColor"></path><path d="M15.5 8.5a5 5 0 0 1 0 7M19 5a10 10 0 0 1 0 14"></path></svg></button>
+      </aside>
+      <div class="g-play">
+        <div class="g-stage" id="g-stage"></div>
+        <p class="g-feedback" id="g-feedback" role="status"></p>
+      </div>
+    </div>
+    <div class="g-end" id="g-end" hidden>
+      <div class="g-end-card" role="dialog" aria-labelledby="g-end-h">
+        <p class="g-praise" id="g-praise" lang="ar" dir="rtl"></p>
+        <h2 id="g-end-h">Lanterns lit</h2>
+        <div class="g-stats" id="g-stats"></div>
+        <p id="g-garden"></p>
+        <p class="muted small" id="g-practise"></p>
+        <div class="row center"><button class="btn btn-primary big" type="button" id="g-again">Play again</button><button class="btn big" type="button" id="g-home">Back to my garden</button></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- 5 · report ─────────────────────────────────────────── -->
+  <section class="screen flow" id="s-report" hidden aria-labelledby="r-title">
+    <header class="topbar">
+      <div class="brand"><img class="brand-logo" src={u('logo-160.png')} alt="Al-Huda Islamic Centre logo" width="44" height="44" /><span><b>Al-Huda Islamic Weekend School</b><small>Ta'aleem Virtual Classroom</small></span></div>
+      <div class="row push">
+        <button class="btn" type="button" id="r-home">Classroom</button>
+        <button class="btn btn-primary" type="button" id="r-new">New session</button>
+        <button class="btn" type="button" id="r-out">Sign out</button>
+      </div>
+    </header>
+    <div class="flow-main report">
+      <div class="r-main">
+        <div class="r-head">
+          <img id="r-snap" alt="Login snapshot" />
+          <div>
+            <p class="r-praise" id="r-praise" lang="ar" dir="rtl" hidden></p>
+            <h1 id="r-title">Session complete</h1>
+            <p class="muted" id="r-sub"></p>
+          </div>
+        </div>
+        <div class="metrics">
+          <div class="metric"><span>Time spent</span><b id="m-time">0 min</b></div>
+          <div class="metric"><span id="m-q-l">Questions</span><b id="m-q">0</b></div>
+          <div class="metric"><span>Mistakes</span><b class="r" id="m-mist">0</b></div>
+          <div class="metric"><span>Looked away</span><b class="a" id="m-away">0</b></div>
+        </div>
+        <div class="card">
+          <h2 class="h2">Most observed mistakes</h2>
+          <div id="r-top" class="bars"></div>
+        </div>
+        <div class="card soft">
+          <h2 class="h2 accent-ink">The Sheikh's review</h2>
+          <p id="r-review" class="r-review"></p>
+        </div>
+        <div class="card">
+          <h2 class="h2">Ayah by ayah</h2>
+          <div id="r-strip" class="strip"></div>
         </div>
       </div>
-      <div id="tab-surah" role="tabpanel" aria-labelledby="t-surah" class="grid">
-        {meta.surahs.map((s) => (
-          <a class="card surah" href={u(`surah/${s.n}/`)}>
-            <span class="num">{s.n}</span>
-            <span class="surah-main"><b>{s.en}</b><span class="small">{s.meaning}</span></span>
-            <span class="surah-side"><span class="ar-ui" lang="ar">{s.ar}</span><span class="small">{s.ayahs} ayahs, {s.type}</span></span>
-          </a>
-        ))}
-      </div>
-      <div id="tab-juz" role="tabpanel" aria-labelledby="t-juz" class="grid" hidden>
-        {meta.juzs.map((j) => {
-          const s = meta.surahs[j.s - 1];
-          const page = meta.pages.findLast((p) => p.s < j.s || (p.s === j.s && p.a <= j.a));
-          return (
-            <a class="card juz" href={u(`page/${page.n}/`)}>
-              <b>Juz {j.n}</b><span class="small">Starts at {s.en} {j.s}:{j.a}</span>
-            </a>
-          );
-        })}
-      </div>
-      <div id="tab-page" role="tabpanel" aria-labelledby="t-page" hidden>
-        <form class="card page-jump" id="page-form">
-          <label class="field-label" for="page-n">Go to mushaf page</label>
-          <input class="field" id="page-n" type="number" min="1" max={meta.pages.length} value="1" style="width:110px" />
-          <span class="muted">of {meta.pages.length}</span>
-          <button class="btn btn-primary" type="submit">Open page</button>
-        </form>
-      </div>
-    </section>
-
-    <section class="block" aria-labelledby="res-h">
-      <div>
-        <h2 id="res-h">Resource library</h2>
-        <p class="muted" style="margin:8px 0 0;max-width:720px">Preview and download the open datasets this site is built on.</p>
-      </div>
-      <div class="grid">
-        {resources.filter(([id]) => id !== 'wbw' || meta.wbw).map(([id, title, desc, src]) => (
-          <a class="card res" href={u(`resources/#${id}`)}>
-            <b>{title}</b>
-            <span class="muted" style="font-size:15px">{desc}</span>
-            <span class="src">Source: {src}</span>
-          </a>
-        ))}
-      </div>
-    </section>
-  </div>
+      <aside class="r-side">
+        <div class="card sent" id="r-sent" data-state="sending">
+          <span class="sent-ic" aria-hidden="true"></span>
+          <div>
+            <h2 class="h2" id="r-sent-h">Sending to your teacher…</h2>
+            <p class="muted small" id="r-sent-t"></p>
+            <button class="btn" type="button" id="r-retry" hidden>Try again</button>
+          </div>
+        </div>
+      </aside>
+    </div>
+  </section>
 
   <script>
-    import { lastRead, getJson, pad } from '../lib/client.mjs';
-    import { qpc } from '../lib/recite.mjs';
-    import { u } from '../lib/url.mjs';
+    import { configure, isDemo, login, register, listClasses, setGender, sendSession, flushOutbox } from '../lib/classlog.mjs';
+    import { phrase, praiseFor, speak } from '../lib/phrases.mjs';
+    import { getProgress, saveProgress, logGame } from '../lib/classlog.mjs';
+    import { LETTERS, LEVEL_GAME, levelNumber, lessonState, MASTERED, hasLetterRecording, letterAudioUrl } from '../lib/alifba.mjs';
+    import { createLanterns } from '../lib/lanterns.mjs';
+    import { startAmbience, stopAmbience, setMuted, isMuted, nasheed } from '../lib/ambience.mjs';
+    import { openCamera, micMeter, snapshot, testTone } from '../lib/media.mjs';
+    import { createGazeWatcher, loadGaze } from '../lib/gaze.mjs';
+    import { getSpeechRecognition, prepareFastListening } from '../lib/speech.mjs';
+    import { forLevel, ICONS } from '../lib/activities.mjs';
+    import { createEngine } from '../lib/engine.mjs';
+    import { LEVELS, CATEGORIES, gradeOf, mistakesTotal, topMistakes, review, newSessionId } from '../lib/session.mjs';
+    import { store } from '../lib/client.mjs';
 
-    // tabs
-    const tabs = [...document.querySelectorAll('[role="tab"]')];
-    tabs.forEach((t) => t.addEventListener('click', () => {
-      tabs.forEach((x) => {
-        const on = x === t;
-        x.setAttribute('aria-selected', String(on));
-        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
-      });
-    }));
+    const $ = (id) => document.getElementById(id);
+    const body = document.body;
+    configure(body.dataset.logUrl);
+    const localAsr = body.dataset.localAsr === '1';
+    if (isDemo()) $('demo-note').hidden = false;
+    flushOutbox().catch(() => {});
+    setInterval(() => flushOutbox().catch(() => {}), 60000);
 
-    document.getElementById('page-form')?.addEventListener('submit', (e) => {
+    // ── state ────────────────────────────────────────────────
+    const me = { name: '', username: '', gender: '', classCode: '', className: '', token: '', loginTime: null, level: 1 };
+    let stream = null, meter = null, watcher = null, snap = '';
+    let choice = { mode: 'hifz', level: 'intermediate', ...store.get('choice', {}) };
+    let engine = null, sessionStart = 0, timerT = 0;
+
+    function show(id) {
+      document.querySelectorAll('.screen').forEach((s) => (s.hidden = s.id !== id));
+      window.scrollTo(0, 0);
+    }
+
+    // ── 1 · sign in ──────────────────────────────────────────
+    const USER_RE = /^[a-z0-9][a-z0-9._-]{2,23}$/;
+    function setTab(which) {
+      const up = which === 'new';
+      $('tab-in').setAttribute('aria-selected', String(!up)); $('tab-new').setAttribute('aria-selected', String(up));
+      $('signin').hidden = up; $('signup').hidden = !up;
+      (up ? $('up-name') : $('in-user')).focus();
+      if (up) loadClasses();
+    }
+    $('tab-in').addEventListener('click', () => setTab('in'));
+    $('tab-new').addEventListener('click', () => setTab('new'));
+    let classesLoaded = false;
+    async function loadClasses() {
+      if (classesLoaded) return;
+      const r = await listClasses();
+      const sel = $('up-class');
+      if (!r.ok) { sel.replaceChildren(new Option('Could not load the levels', '')); $('up-err').textContent = r.message; return; }
+      classesLoaded = true;
+      sel.replaceChildren(new Option('Choose your level', ''), ...r.classes.map((c) => new Option(c.name, c.code)));
+    }
+    const saved = store.get('who', null);
+    if (saved?.username) $('in-user').value = saved.username;
+    else if (!saved) setTimeout(() => setTab('new'), 0);
+
+    function signedIn(r) {
+      Object.assign(me, { name: r.name, username: r.username, gender: r.gender || '', classCode: r.classCode, className: r.className, token: r.token, loginTime: new Date() });
+      if (!me.gender) {   // accounts made before gender was asked: ask once
+        $('signin').hidden = true; $('signup').hidden = true; $('ask-gender').hidden = false;
+        document.querySelector('.si-tabs').hidden = true;
+        return;
+      }
+      store.set('who', { username: r.username });
+      document.querySelectorAll('[data-name]').forEach((x) => (x.textContent = me.name.split(' ')[0]));
+      $('in-pass').value = ''; $('up-pass').value = ''; $('up-pass2').value = ''; $('up-cpass').value = '';
+      goHome(true);
+    }
+    function busy(btn, on, label) { btn.disabled = on; btn.textContent = on ? 'Please wait…' : label; }
+
+    $('signin').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const n = Math.min(604, Math.max(1, parseInt(document.getElementById('page-n').value, 10) || 1));
-      location.href = u(`page/${n}/`);
+      const username = $('in-user').value.trim().toLowerCase();
+      const password = $('in-pass').value;
+      $('in-err').textContent = '';
+      if (!username) return fail('in-err', 'Enter your username.', 'in-user');
+      if (!password) return fail('in-err', 'Enter your password.', 'in-pass');
+      busy($('in-go'), true);
+      const r = await login({ username, password });
+      busy($('in-go'), false, 'Sign in');
+      if (!r.ok) return fail('in-err', r.message, 'in-pass');
+      signedIn(r);
     });
 
-    // continue reading
-    const lr = lastRead.get();
-    if (lr) {
-      getJson(`surah/${pad(lr.s)}.json`).then((s) => {
-        const ay = s.ayahs.find((x) => x.a === lr.a);
-        if (!ay) return;
-        document.getElementById('resume-ar').textContent = qpc(ay.ar.split(' ').slice(0, 6).join(' '));
-        document.getElementById('resume-meta').textContent = `${s.en}, ${lr.s}:${lr.a}, page ${ay.page}`;
-        document.getElementById('resume-link').href = u(`surah/${lr.s}/#a${lr.a}`);
-        document.getElementById('resume-page').href = u(`page/${ay.page}/`);
-        document.getElementById('resume').hidden = false;
-      }).catch(() => {});
+    $('signup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const name = $('up-name').value.trim().replace(/\s+/g, ' ');
+      const classCode = $('up-class').value;
+      const classPassword = $('up-cpass').value;
+      const username = $('up-user').value.trim().toLowerCase();
+      const password = $('up-pass').value;
+      $('up-err').textContent = '';
+      if (name.length < 3) return fail('up-err', 'Enter your full name.', 'up-name');
+      const gender = document.querySelector('input[name="up-g"]:checked')?.value || '';
+      if (!gender) return fail('up-err', 'Choose Boy or Girl.');
+      if (!classCode) return fail('up-err', 'Choose your level.', 'up-class');
+      if (!classPassword && !isDemo()) return fail('up-err', 'Enter your level’s class password from your teacher.', 'up-cpass');
+      if (!USER_RE.test(username)) return fail('up-err', 'Usernames are 3 to 24 letters or numbers, and may use . _ or - (no spaces).', 'up-user');
+      if (password.length < 6) return fail('up-err', 'Choose a password of at least 6 characters.', 'up-pass');
+      if (password !== $('up-pass2').value) return fail('up-err', 'The two passwords are not the same.', 'up-pass2');
+      busy($('up-go'), true);
+      const r = await register({ name, gender, classCode, classPassword, username, password });
+      busy($('up-go'), false, 'Create account');
+      if (!r.ok) return fail('up-err', r.message, r.error === 'username-taken' || r.error === 'bad-username' ? 'up-user' : r.error === 'wrong-class-password' ? 'up-cpass' : null);
+      signedIn(r);
+    });
+    $('ask-gender').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const g = document.querySelector('input[name="ask-g"]:checked')?.value;
+      if (!g) return fail('ask-err', 'Choose Boy or Girl.');
+      busy($('ask-go'), true);
+      const r = await setGender({ token: me.token, gender: g });
+      busy($('ask-go'), false, 'Continue');
+      if (!r.ok) return fail('ask-err', r.message);
+      $('ask-gender').hidden = true; document.querySelector('.si-tabs').hidden = false; $('signin').hidden = false;
+      signedIn({ ...me, gender: g });
+    });
+    function fail(where, msg, focus) { $(where).textContent = msg; if (focus) $(focus).focus(); }
+
+    // ── 2 · camera, microphone, snapshot, face ───────────────
+    function setCheck(id, ok, text) {
+      const c = $(id);
+      c.dataset.ok = ok === true ? 'yes' : ok === false ? 'no' : 'wait';
+      if (text) c.querySelector('[data-t]').textContent = text;
     }
+    async function startCheck() {
+      $('ck-err').textContent = '';
+      setCheck('ck-cam', null, 'Starting…'); setCheck('ck-mic', null); setCheck('ck-spk', null); setCheck('ck-face', null, 'Loading face check…');
+      checkFast();
+      try {
+        stream ??= await openCamera();
+      } catch (err) {
+        setCheck('ck-cam', false, 'Camera or microphone blocked');
+        $('cam-off').hidden = false;
+        $('cam-off').textContent = 'Allow the camera and microphone for this site (the icon in the address bar), then press Try again.';
+        $('ck-err').textContent = 'The classroom needs your camera and microphone.';
+        $('to-setup').disabled = false; $('to-setup').textContent = 'Try again';
+        $('to-setup').onclick = () => { $('to-setup').onclick = null; $('to-setup').textContent = 'Continue'; startCheck(); };
+        return;
+      }
+      $('cam-off').hidden = true;
+      const v = $('cam');
+      v.srcObject = stream;
+      await v.play().catch(() => {});
+      const vt = stream.getVideoTracks()[0];
+      $('cam-name').textContent = vt?.label || 'Camera';
+      setCheck('ck-cam', true, 'Camera is on');
+      meter?.stop();
+      let heard = false;
+      const bars = [...$('meter').children];
+      meter = micMeter(stream, (lv) => {
+        const n = Math.round(lv * bars.length);
+        bars.forEach((b, i) => b.classList.toggle('on', i < n));
+        if (lv > 0.25 && !heard) { heard = true; setCheck('ck-mic', true, 'We can hear you'); }
+      });
+      $('to-setup').disabled = false;
+      $('retake').disabled = false;
+      // face check: loads the model, then waits for a face and records the neutral pose
+      let snapped = false;
+      const takeSnap = () => { snap = snapshot(v); $('snap').src = snap; $('snap').hidden = false; $('snap-ph').hidden = true; $('snap-title').textContent = `Login snapshot taken · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; snapped = true; };
+      const fallback = setTimeout(() => { if (!snapped) takeSnap(); }, 6000);
+      try {
+        await loadGaze();
+        watcher?.stop();
+        watcher = createGazeWatcher(v, {
+          onFrame: (m) => {
+            if (!m || snapped) return;
+            clearTimeout(fallback);
+            takeSnap();
+          },
+        });
+        await watcher.start();
+        setCheck('ck-face', null, 'Look at the screen for a moment…');
+        const c = await watcher.calibrate({ need: 12, maxMs: 9000 });
+        if (c.ok) setCheck('ck-face', true, 'Face visible and facing the screen');
+        else setCheck('ck-face', false, 'Face not found. Sit in front of the camera with good light.');
+        watcher.stop();
+      } catch (err) {
+        console.warn('face check unavailable', err);
+        watcher = null;
+        setCheck('ck-face', false, 'Face check could not load. Hifz tests will run without it.');
+      }
+    }
+    $('retake').addEventListener('click', () => { const v = $('cam'); if (v.readyState >= 2) { snap = snapshot(v); $('snap').src = snap; $('snap-title').textContent = `Login snapshot taken · ${new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`; } });
+    $('tone').addEventListener('click', () => { testTone(); setCheck('ck-spk', true, 'Did you hear a tone? If not, check your volume.'); });
+    $('ck-back').addEventListener('click', () => { stopMedia(); goHome(); });
+    const FAST = { ready: [true, 'On-device, words appear quickly'], downloading: [null, 'Downloading the Arabic speech pack (one time)…'], downloadable: [null, 'The Arabic speech pack downloads when you continue'], unavailable: [false, 'Online listening (this computer has no on-device Arabic)'], unsupported: [false, 'Online listening (use Chrome for the fastest tracking)'] };
+    const fastStatus = (st) => { const [ok, t] = FAST[st] ?? FAST.unsupported; setCheck('ck-fast', ok, t); };
+    function checkFast() { if (localAsr) { setCheck('ck-fast', true, 'The Qāf speech model, on this computer'); return; } prepareFastListening({ onStatus: fastStatus }); }
+    $('to-setup').addEventListener('click', () => {
+      if (!localAsr) prepareFastListening({ install: true, onStatus: fastStatus });   // needs this click to start the one-time download
+      if (!stream) return;
+      if (!snap && $('cam').readyState >= 2) { snap = snapshot($('cam')); }
+      show('s-setup');
+      syncSetup();
+    });
+    function stopMedia() { meter?.stop(); meter = null; watcher?.stop(); stream?.getTracks().forEach((t) => t.stop()); stream = null; }
+
+    // ── 3 · setup ────────────────────────────────────────────
+    const fromSel = $('su-from'), toSel = $('su-to');
+    const range = store.get('range', { s1: 67, a1: 1, s2: 67, a2: 30 });
+    fromSel.value = String(range.s1); toSel.value = String(range.s2);
+    $('su-a1').value = String(range.a1); $('su-a2').value = String(range.a2);
+    $('su-voice').value = store.get('voice', body.dataset.defaultReciter);
+    const maxAyah = (sel) => Number(sel.selectedOptions[0].dataset.ayahs);
+    fromSel.addEventListener('change', () => { $('su-a1').value = '1'; $('su-a1').max = String(maxAyah(fromSel)); if (Number(toSel.value) < Number(fromSel.value)) { toSel.value = fromSel.value; toSel.dispatchEvent(new Event('change')); } syncSetup(); });
+    toSel.addEventListener('change', () => { $('su-a2').value = String(maxAyah(toSel)); $('su-a2').max = String(maxAyah(toSel)); syncSetup(); });
+    ['su-a1', 'su-a2', 'su-q'].forEach((id) => $(id).addEventListener('input', syncSetup));
+    document.querySelectorAll('[data-level]').forEach((b) => b.addEventListener('click', () => { choice.level = b.dataset.level; syncSetup(); }));
+    function syncSetup() {
+      document.querySelectorAll('[data-level]').forEach((b) => b.setAttribute('aria-checked', String(b.dataset.level === choice.level)));
+      document.querySelectorAll('#s-setup [data-hifz-only]').forEach((x) => (x.hidden = choice.mode !== 'hifz'));
+      const hifz = choice.mode === 'hifz';
+      $('su-h').textContent = hifz ? 'Hifz test' : 'Mujawwadah · reading from the mushaf';
+      $('start').textContent = hifz ? 'Start Hifz test' : 'Open the mushaf';
+      const s1 = fromSel.selectedOptions[0].textContent.replace(/^\d+\.\s*/, ''), s2 = toSel.selectedOptions[0].textContent.replace(/^\d+\.\s*/, '');
+      const r = s1 === s2 ? `${s1} ${$('su-a1').value}–${$('su-a2').value}` : `${s1} ${$('su-a1').value} to ${s2} ${$('su-a2').value}`;
+      $('su-sum').textContent = `${hifz ? 'Hifz test' : 'Mujawwadah'} · ${LEVELS[choice.level].name} · ${r}`;
+    }
+    $('su-back').addEventListener('click', () => { show('s-check'); });
+    $('start').addEventListener('click', startSession);
+
+    // ── 4 · the classroom ────────────────────────────────────
+    const sheikhEl = () => document.querySelector('#sheikh-tile .sheikh');
+    const SHEIKH_TAGS = { speaking: 'Sheikh · reciting', listening: 'Sheikh · listening', prompt: 'Sheikh · prompting you', stop: 'Sheikh · stopped you', idle: 'Sheikh' };
+    function setSheikh(state, ar, en) {
+      sheikhEl().dataset.state = state;
+      $('sheikh-tile').dataset.state = state;
+      $('sheikh-tag').textContent = SHEIKH_TAGS[state] ?? 'Sheikh';
+      if (ar !== undefined) $('say-ar').textContent = ar;
+      if (en !== undefined) $('say-en').textContent = en;
+    }
+    const NOTE_TEXT = {
+      wrong: (n) => `Wrong word${n.heard ? ` (heard “${n.heard}”)` : ''}`,
+      prompt: () => 'Forgotten word · the Sheikh prompted',
+      hint: () => 'Hint used',
+      unclear: () => 'Unclear · recite it clearly next time',
+      back: () => 'Went back over words',
+      away: () => 'Looked away from the screen',
+    };
+    let notesN = 0;
+    function addNote(n) {
+      notesN++;
+      $('notes-n').textContent = `${notesN} so far`;
+      const li = document.createElement('li');
+      li.className = 'note k-' + n.kind;
+      const dot = document.createElement('i'); dot.className = 'dot';
+      const box = document.createElement('div');
+      const t = document.createElement('p'); t.textContent = NOTE_TEXT[n.kind]?.(n) ?? n.kind;
+      const s = document.createElement('p'); s.className = 'muted small';
+      if (n.label) { s.append(n.label.replace(/^.*?(\d+:\d+)$/, 'Ayah $1')); if (n.word && n.kind !== 'away') { const w = document.createElement('span'); w.className = 'nw'; w.lang = 'ar'; w.textContent = n.word; s.append(' · ', w); } }
+      box.append(t, s);
+      li.append(dot, box);
+      $('notes').prepend(li);
+    }
+    function setStatus(text, kind) { const st = $('status'); st.textContent = text; st.className = 'status' + (kind ? ' ' + kind : ''); }
+    function tickTimer() { const s = Math.floor((Date.now() - sessionStart) / 1000); $('c-timer').textContent = `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; }
+
+    let awayAt = 0;
+    function onGaze(state, why) {
+      if (!engine || engine.mode !== 'hifz') return;
+      const self = $('self-tile');
+      self.dataset.state = state;
+      $('self-label').textContent = state === 'ok' ? 'You · face visible' : state === 'noface' ? 'You · face not visible' : 'You · looking away';
+      if (state === 'ok') return;
+      if (!['answer', 'sheikh'].includes(engine.phase)) return;
+      if (engine.pause('away')) {
+        awayAt = Date.now();
+        $('away-why').textContent = state === 'noface' ? 'Your face is not visible to the camera.' : `It looked like you were ${why || 'looking away'}.`;
+        $('away').hidden = false;
+        $('s-class').dataset.away = '1';
+        { const p = phrase('lookatme', me.gender); setSheikh('stop', p.ar, 'Look at the screen, then continue.'); }
+        setStatus('Paused. Look at the Sheikh, then press “I’m ready, continue”.', 'bad');
+      }
+    }
+    $('away-resume').addEventListener('click', () => {
+      if (watcher && watcher.state !== 'ok') { setStatus('Look at the screen first, then press continue.', 'bad'); return; }
+      $('away').hidden = true;
+      delete $('s-class').dataset.away;
+      if (awayAt) { engine.addAwayTime(Date.now() - awayAt); awayAt = 0; }
+      engine.resume();
+    });
+
+    async function startSession() {
+      $('su-err').textContent = '';
+      const { SR, engine: asr } = getSpeechRecognition({ localAsr });
+      if (!SR) { $('su-err').textContent = 'This browser cannot check speech. Open the classroom in Chrome or Edge.'; return; }
+      const s1 = Number(fromSel.value), s2 = Number(toSel.value);
+      const a1 = Math.max(1, parseInt($('su-a1').value, 10) || 1);
+      const a2 = Math.max(1, parseInt($('su-a2').value, 10) || maxAyah(toSel));
+      if (s1 > s2 || (s1 === s2 && a1 > a2)) { $('su-err').textContent = 'The end of the range must come after its start.'; return; }
+      store.set('range', { s1, a1, s2, a2 }); store.set('choice', choice); store.set('voice', $('su-voice').value);
+      meter?.stop(); meter = null;
+      stream?.getAudioTracks().forEach((t) => t.stop());   // the speech engine opens the microphone itself
+
+      const hifz = choice.mode === 'hifz';
+      $('s-class').dataset.mode = choice.mode;
+      document.querySelectorAll('#s-class [data-hifz-only]').forEach((x) => (x.hidden = !hifz));
+      document.querySelectorAll('#s-class [data-reading-only]').forEach((x) => (x.hidden = hifz));
+      $('c-title').textContent = hifz ? 'Hifz test' : 'Mujawwadah · reading from the mushaf';
+      $('c-level').textContent = LEVELS[choice.level].name;
+      $('notes').replaceChildren(); notesN = 0; $('notes-n').textContent = 'None yet';
+      $('where').textContent = ''; setStatus('', ''); $('stage').replaceChildren(); $('c-sub').textContent = '';
+      $('away').hidden = true; delete $('s-class').dataset.away;
+      $('cam2').srcObject = stream; $('cam2').play().catch(() => {});
+      $('self-tile').dataset.state = 'ok'; $('self-label').textContent = 'You · live';
+      show('s-class');
+      setSheikh('idle', '', '');
+      sessionStart = Date.now(); clearInterval(timerT); timerT = setInterval(tickTimer, 1000); tickTimer();
+
+      engine = createEngine({
+        stage: $('stage'), SR, level: choice.level, reciter: $('su-voice').value, gender: me.gender,
+        ui: {
+          sheikh: setSheikh, status: setStatus, note: addNote,
+          where: (w) => { $('where').textContent = w.label; },
+          mic: (on) => { $('mic').setAttribute('aria-pressed', String(on)); $('mic-t').textContent = on ? 'Listening' : 'Microphone'; },
+          progress: ({ qi, n, mode }) => {
+            $('c-dots').replaceChildren(...Array.from({ length: n }, (_, i) => { const d = document.createElement('span'); d.className = i < qi ? 'done' : i === qi ? 'now' : ''; return d; }));
+            $('c-q').textContent = mode === 'hifz' ? `Question ${qi + 1} of ${n}` : '';
+            $('c-dots').hidden = mode !== 'hifz';
+          },
+          page: (p) => { $('c-sub').textContent = `${$('su-sum').textContent.split(' · ').slice(2).join(' · ')} · page ${p}${asr === 'qaaf' ? ' · Qāf speech model' : asr === 'on-device' ? ' · on-device listening' : ''}`; },
+          finished: (res) => endSession(res),
+        },
+      });
+      $('hint').hidden = !engine.hintsAllowed;
+      if (hifz && stream?.getVideoTracks().length) {
+        try {
+          const base = watcher?.baseline ?? null;
+          watcher?.stop();
+          watcher = createGazeWatcher($('cam2'), { onChange: onGaze });
+          if (base) watcher.baseline = base;
+          await watcher.start();
+        } catch { watcher = null; }
+      }
+      try {
+        if (hifz) await engine.startHifz({ s1, a1, s2, a2 }, { questionsN: $('su-q').value ? Number($('su-q').value) : null });
+        else await engine.startReading({ s1, a1, s2, a2 });
+      } catch (err) {
+        $('su-err').textContent = err.message || String(err);
+        show('s-setup');
+      }
+    }
+    $('mic').addEventListener('click', () => engine?.toggleMic());
+    $('hint').addEventListener('click', () => engine?.hint());
+    $('repeat').addEventListener('click', () => engine?.repeatOpening());
+    $('listen').addEventListener('click', () => engine?.listen());
+    $('restart').addEventListener('click', () => engine?.restartAyah());
+    $('skip').addEventListener('click', () => engine?.skip());
+    $('c-end').addEventListener('click', () => engine?.end());
+    $('camtoggle').addEventListener('click', () => {
+      const t = stream?.getVideoTracks()[0];
+      if (!t) return;
+      if (engine?.mode === 'hifz') { setStatus('The camera stays on during a Hifz test.', 'bad'); return; }
+      t.enabled = !t.enabled;
+      $('camtoggle').setAttribute('aria-pressed', String(t.enabled));
+    });
+
+    // ── 5 · report and class log ─────────────────────────────
+    let lastEntry = null;
+    function endSession(res) {
+      clearInterval(timerT);
+      watcher?.stop();
+      const t = res.tally;
+      const minutes = Math.max(1, Math.round((Date.now() - sessionStart) / 60000));
+      const grade = gradeOf(t);
+      const total = mistakesTotal(t, choice.level);
+      const top = topMistakes(t);
+      const passage = res.passage || '—';
+      const rev = review(t, { mode: res.mode, passage, weakAyahs: res.weakAyahs });
+      const hifz = res.mode === 'hifz';
+      const endTime = new Date();
+      const id = newSessionId(me.classCode);
+
+      $('r-title').textContent = `Session complete, ${me.name.split(' ')[0]}`;
+      { const pr = phrase(t.words ? praiseFor(t.words ? t.first / t.words : 0, t.prompt, t.hint) : 'ahsant', me.gender); $('r-praise').textContent = pr.ar; $('r-praise').hidden = !t.words; }
+      const fmt = (d) => d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      $('r-sub').textContent = `${hifz ? 'Hifz test' : 'Mujawwadah'} · ${passage} · ${LEVELS[choice.level].name} · Hafs · ${endTime.toLocaleDateString([], { day: 'numeric', month: 'short', year: 'numeric' })}, ${fmt(new Date(sessionStart))} to ${fmt(endTime)}`;
+      $('r-snap').src = snap || ''; $('r-snap').hidden = !snap;
+      $('m-time').textContent = `${minutes} min`;
+      $('m-q-l').textContent = hifz ? 'Questions' : 'Ayahs read';
+      $('m-q').textContent = hifz ? String(res.questions) : String(res.ayahCount);
+      $('m-mist').textContent = String(total);
+      $('m-away').textContent = hifz ? `${t.lookAways} time${t.lookAways === 1 ? '' : 's'}` : '—';
+      const bars = $('r-top'); bars.replaceChildren();
+      const max = Math.max(1, ...top.map((x) => x.n));
+      if (!top.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = t.words ? 'No mistakes. Well done.' : 'No recitation was heard.'; bars.append(p); }
+      for (const x of top) {
+        const row = document.createElement('div'); row.className = 'bar';
+        const l = document.createElement('span'); l.textContent = x.label;
+        const tr = document.createElement('span'); tr.className = 'track'; const f = document.createElement('i'); f.style.width = `${(x.n / max) * 100}%`; tr.append(f);
+        const n = document.createElement('b'); n.textContent = String(x.n);
+        row.append(l, tr, n); bars.append(row);
+      }
+      $('r-review').textContent = rev;
+      const strip = $('r-strip'); strip.replaceChildren();
+      const MK = { wrong: 'wrong word', prompt: 'prompted', hint: 'hint', unclear: 'unclear', back: 'went back', away: 'looked away' };
+      for (const a of res.perAyah) {
+        const c = document.createElement('span');
+        const bad = a.marks.some((m) => m === 'wrong' || m === 'prompt');
+        c.className = 'chip ' + (bad ? 'bad' : a.marks.length ? 'warn' : 'ok');
+        c.textContent = `${a.s}:${a.a}` + (a.marks.length ? ' · ' + a.marks.map((m) => MK[m]).join(', ') : '');
+        strip.append(c);
+      }
+      if (!res.perAyah.length) { const p = document.createElement('p'); p.className = 'muted'; p.textContent = 'No ayahs were recited.'; strip.append(p); }
+      show('s-report');
+
+      lastEntry = {
+        token: me.token, snapshot: snap,
+        session: {
+          id, studentName: me.name, username: me.username, gender: me.gender, className: me.className, loginTime: me.loginTime?.toISOString(), endTime: endTime.toISOString(), minutes,
+          mode: res.mode, level: LEVELS[choice.level].name, surahs: passage, ayahs: res.ayahCount,
+          questions: hifz ? res.questions : '', words: t.words, rightFirstPct: t.words ? Math.round((t.first / t.words) * 100) : 0,
+          grade, mistakesTotal: total, topMistakes: top.map((x) => `${x.label} ×${x.n}`).join('; '),
+          wrong: t.wrong, prompts: t.prompt, hints: t.hint, unclear: t.unclear, wentBack: t.back, lookAways: hifz ? t.lookAways : '',
+          review: rev,
+        },
+      };
+      send();
+    }
+    async function send() {
+      const card = $('r-sent');
+      card.dataset.state = 'sending';
+      $('r-sent-h').textContent = 'Sending to your teacher…'; $('r-sent-t').textContent = ''; $('r-retry').hidden = true;
+      const r = await sendSession(lastEntry);
+      const at = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      if (r.ok && r.demo) { card.dataset.state = 'demo'; $('r-sent-h').textContent = 'Not saved (demo mode)'; $('r-sent-t').textContent = 'The class log is not connected yet. See apps-script/README.md.'; }
+      else if (r.ok) { card.dataset.state = 'ok'; $('r-sent-h').textContent = 'Sent to your teacher'; $('r-sent-t').textContent = `This session was added to the ${me.className} class log at ${at}.`; }
+      else if (r.queued) { card.dataset.state = 'queued'; $('r-sent-h').textContent = 'Waiting to send'; $('r-sent-t').textContent = 'The class log could not be reached. It will be sent automatically when you are back online.'; $('r-retry').hidden = false; }
+      else { card.dataset.state = 'fail'; $('r-sent-h').textContent = 'Not sent'; $('r-sent-t').textContent = r.message ?? 'Ask your teacher to check the class settings.'; }
+    }
+    $('r-retry').addEventListener('click', send);
+    $('r-new').addEventListener('click', async () => {
+      engine = null;
+      try { if (stream && !stream.getAudioTracks().some((t) => t.readyState === 'live')) { stream.getTracks().forEach((t) => t.stop()); stream = null; } } catch {}
+      show('s-check'); startCheck();
+    });
+    $('r-out').addEventListener('click', () => signOut());
+    $('r-home').addEventListener('click', () => { stopMedia(); goHome(); });
+
+    // ── Alif Ba: Jannah Garden, Lesson 1 and Noor Lanterns ───
+    const LESSONS = [
+      ['The letters and their names', 'The 28 Arabic letters and the name of each. Learn them, then light their lanterns.'],
+      ['Huruf Muqatta’at', 'The letters at the start of 29 surahs, read by their names.'],
+      ['Writing the letters', 'How each letter looks at the beginning, middle and end of a word.'],
+      ['Harakat', 'Fat-ha, kes-ra and dom-ma.'],
+      ['Sukun, shadda, tanween', 'Signs that change how a letter is read.'],
+      ['The rules of Madd', 'Primary and secondary Madd.'],
+      ['Madd letters', 'Alif, waw and ya without a vowel.'],
+      ['Speeds of recitation', 'Tahqeeq, tadweer and hadr.'],
+      ['Special pronunciations', 'The pronoun ha and the hidden marks.'],
+      ['Lafzatullah', 'Saying the Name of Allah, heavy or light.'],
+      ['The rule of Ra', 'When Ra is heavy and when it is light.'],
+      ['Stopping', 'How to stop at the end of a word.'],
+      ['Idgham', 'Merging one letter into the next.'],
+      ['Iqlab', 'Nun becoming meem before ba.'],
+      ['Izhar', 'Saying the nun clearly.'],
+      ['Ikhfa', 'The hidden nun.'],
+      ['Supplications and short surahs', 'Duas of the prayer and the short surahs.'],
+    ];
+    let progress = {}, selLesson = 1, game = null, gameStart = 0;
+    const PALM = '<svg viewBox="0 0 60 64" width="54" height="58" aria-hidden="true"><ellipse cx="30" cy="58" rx="20" ry="4" fill="#B9A27A"/><path d="M28 58 Q27 40 30 24 L32 24 Q31 40 33 58 Z" fill="#8A5A12"/><g fill="#2E8B57"><path d="M31 24 Q16 14 6 22 Q18 18 31 26 Z"/><path d="M31 24 Q46 14 56 22 Q44 18 31 26 Z"/><path d="M31 24 Q22 6 12 6 Q24 12 30 25 Z"/><path d="M31 24 Q40 6 50 6 Q38 12 32 25 Z"/><path d="M31 24 Q31 6 31 2 Q33 12 32 25 Z"/></g><g fill="#C9A24A"><circle cx="27" cy="28" r="2.4"/><circle cx="34" cy="28" r="2.4"/><circle cx="30.5" cy="31" r="2.4"/></g></svg>';
+    const SPROUT = '<svg viewBox="0 0 60 64" width="54" height="58" aria-hidden="true"><ellipse cx="30" cy="58" rx="20" ry="4" fill="#B9A27A"/><path d="M30 58 V40" stroke="#2E8B57" stroke-width="3"/><path d="M30 44 Q18 36 16 28 Q28 30 30 44 Z" fill="#5CB85C"/><path d="M30 42 Q42 34 44 26 Q32 28 30 42 Z" fill="#5CB85C"/></svg>';
+    const SEED = '<svg viewBox="0 0 60 64" width="54" height="58" aria-hidden="true"><ellipse cx="30" cy="56" rx="20" ry="6" fill="#C8B48C"/><ellipse cx="30" cy="52" rx="4" ry="3" fill="#8A6B3A"/></svg>';
+
+    function lessonStatus(n) {
+      if (n === 1) { const st = lessonState(progress); return st.grown ? 'grown' : st.started ? 'growing' : 'seed'; }
+      return 'seed';
+    }
+    // ── the Classroom home: one card per activity (src/lib/activities.mjs) ──
+    async function goHome(fresh) {
+      me.level = levelNumber(me.className);
+      document.querySelectorAll('[data-level-pill]').forEach((x) => (x.textContent = me.className || 'Level 1'));
+      document.querySelectorAll('[data-fullname]').forEach((x) => (x.textContent = me.name));
+      document.querySelectorAll('[data-first]').forEach((x) => (x.textContent = me.name.split(' ')[0]));
+      const now = new Date();
+      try { $('h-hijri').textContent = new Intl.DateTimeFormat('en-u-ca-islamic-umalqura', { day: 'numeric', month: 'long', year: 'numeric' }).format(now).replace(/\s*AH$/, ''); } catch { $('h-hijri').textContent = ''; }
+      $('h-greg').textContent = now.toLocaleDateString('en-CA', { month: 'long', day: 'numeric', year: 'numeric' });
+      const box = $('acts'); box.replaceChildren();
+      for (const a of forLevel(me.level)) {
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'act act-' + a.id + (a.kind === 'soon' ? ' soon' : '');
+        const ic = document.createElement('span'); ic.className = 'act-ic'; ic.innerHTML = ICONS[a.kind === 'soon' ? 'soon' : a.icon] ?? '';
+        const ar = document.createElement('span'); ar.className = 'act-ar'; ar.lang = 'ar'; ar.dir = 'rtl'; ar.textContent = a.ar ?? '';
+        const t = document.createElement('b'); t.textContent = a.title;
+        const d = document.createElement('span'); d.className = 'act-text'; d.textContent = a.kind === 'soon' ? 'Coming soon, in sha Allah.' : a.text;
+        const go = document.createElement('span'); go.className = 'act-go'; go.setAttribute('aria-hidden', 'true');
+        b.append(ic, ar, t, d, go);
+        if (a.kind === 'soon') b.disabled = true;
+        else b.addEventListener('click', () => openActivity(a));
+        box.append(b);
+      }
+      show('s-home');
+      if (fresh) progress = await getProgress({ token: me.token, username: me.username });
+    }
+    let activity = null;
+    function openActivity(a) {
+      activity = a;
+      if (a.kind === 'recite') { choice.mode = a.mode; show('s-check'); startCheck(); }
+      else if (a.kind === 'alifba') goHub();
+    }
+    function goHub() {
+      renderGarden();
+      show('s-hub');
+    }
+    function renderGarden() {
+      $('hub-title').textContent = `${me.name.split(' ')[0]}'s Jannah Garden`;
+      const grown = LESSONS.filter((_, i) => lessonStatus(i + 1) === 'grown').length;
+      $('hub-count').textContent = `${grown} of ${LESSONS.length} lessons grown`;
+      const box = $('plots'); box.replaceChildren();
+      LESSONS.forEach(([name], i) => {
+        const n = i + 1, st = lessonStatus(n);
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'plot ' + st + (n === selLesson ? ' sel' : '') + (n > 1 ? ' later' : '');
+        b.setAttribute('aria-label', `Lesson ${n}, ${name}, ${st === 'grown' ? 'grown' : st === 'growing' ? 'growing' : 'not started'}`);
+        b.innerHTML = st === 'grown' ? PALM : st === 'growing' ? SPROUT : SEED;
+        const lab = document.createElement('span'); lab.textContent = `${n} · ${name}`; b.append(lab);
+        b.addEventListener('click', () => { selLesson = n; renderGarden(); });
+        box.append(b);
+      });
+      const [name, text] = LESSONS[selLesson - 1];
+      const st = lessonStatus(selLesson);
+      const k = lessonState(progress);
+      $('lesson-label').textContent = `Lesson ${selLesson} · ` + (selLesson === 1 ? (st === 'grown' ? 'All 28 letters known, masha’Allah' : `${k.known} of 28 letters known · ${k.lit} lit at least once`) : 'Coming soon');
+      $('lesson-name').textContent = name; $('lesson-text').textContent = text;
+      $('lesson-go').hidden = selLesson !== 1; $('lesson-soon').hidden = selLesson === 1;
+    }
+    document.querySelectorAll('[data-go]').forEach((b) => b.addEventListener('click', () => {
+      if (b.dataset.go === 'hub') { stopGame(); goHub(); }
+      if (b.dataset.go === 'home') { stopGame(); goHome(); }
+    }));
+    document.querySelectorAll('[data-signout]').forEach((b) => b.addEventListener('click', () => signOut()));
+    function signOut() { stopGame(); stopMedia(); Object.assign(me, { token: '', name: '', username: '', gender: '' }); progress = {}; setTab('in'); show('s-signin'); }
+    $('go-letters').addEventListener('click', () => openLetters());
+    $('go-lanterns').addEventListener('click', () => startGame());
+
+    // the letters page, laid out like the booklet
+    let selLetter = LETTERS[0];
+    function openLetters() { renderBoard(); show('s-letters'); }
+    function renderBoard() {
+      const board = $('board'); board.replaceChildren();
+      for (const L of LETTERS) {
+        const n = progress.letters?.[L.letter] ?? 0;
+        const b = document.createElement('button');
+        b.type = 'button'; b.className = 'tile' + (L === selLetter ? ' sel' : '') + (n >= MASTERED ? ' known' : '');
+        b.setAttribute('role', 'listitem'); b.setAttribute('aria-label', `${L.latin}, ${n >= MASTERED ? 'known' : 'still learning'}`);
+        b.textContent = L.letter;
+        b.addEventListener('click', () => { selLetter = L; renderBoard(); hearLetter(L); });
+        board.append(b);
+      }
+      const n = progress.letters?.[selLetter.letter] ?? 0;
+      $('lt-big').textContent = selLetter.letter; $('lt-name').textContent = selLetter.name; $('lt-latin').textContent = selLetter.latin;
+      $('lt-stars').textContent = n >= MASTERED ? 'Known, masha’Allah ★★' : n === 1 ? 'Lit once ★ · once more to know it' : 'Not lit yet';
+      { const k = lessonState(progress); $('lt-count').textContent = `${k.known} of 28 known · ${k.lit} lit once`; }
+    }
+    async function hearLetter(L) {
+      if (await hasLetterRecording(L.file)) { new Audio(letterAudioUrl(L.file)).play().catch(() => {}); return; }
+      speak({ ar: L.name, file: '' });
+    }
+    $('lt-hear').addEventListener('click', () => hearLetter(selLetter));
+    $('lt-play').addEventListener('click', () => startGame());
+
+    // Noor Lanterns
+    function setGameSheikh(state, ar, en) {
+      const sh = document.querySelector('#s-game .sheikh'); if (sh) sh.dataset.state = state;
+      $('g-bubble').textContent = ar || '';
+      $('g-bubble').title = en || '';
+    }
+    function startGame() {
+      stopGame();
+      const lv = me.level || 1, cfg = LEVEL_GAME[lv];
+      const { SR } = getSpeechRecognition({ localAsr });
+      $('g-sub').textContent = `Lesson 1 · ${me.className || 'Level 1'} · ${cfg.label}`;
+      $('g-end').hidden = true; $('g-feedback').textContent = '';
+      $('g-score').hidden = !cfg.score; $('g-dots').hidden = cfg.score;
+      $('g-best').textContent = String(progress.best ?? 0);
+      $('s-game').dataset.level = String(lv);
+      show('s-game');
+      if (!isMuted()) startAmbience();
+      gameStart = Date.now();
+      game = createLanterns({
+        stage: $('g-stage'), level: lv, gender: me.gender, SR, progress,
+        ui: {
+          sheikh: setGameSheikh,
+          feedback: (t, kind) => { const f = $('g-feedback'); f.textContent = t; f.className = 'g-feedback ' + (kind || ''); },
+          timer: (t) => { const bar = $('g-timer'); bar.hidden = !t; if (t) bar.firstElementChild.style.width = `${(t.left / t.total) * 100}%`; },
+          status: (st) => {
+            if (st.showScore) { $('g-pts').textContent = st.score.toLocaleString(); $('g-streak').textContent = `×${st.streak}`; }
+            else { const d = $('g-dots'); d.replaceChildren(...Array.from({ length: st.rounds }, (_, i) => { const x = document.createElement('i'); x.className = i < st.first ? 'on' : i < st.round - 1 ? 'miss' : ''; return x; })); }
+          },
+          mic: () => {},
+          finished: (r) => endGame(r),
+        },
+      });
+      game.start();
+    }
+    function stopGame() { game?.stop(); game = null; stopAmbience(); }
+    $('g-back').addEventListener('click', () => { stopGame(); goHub(); });
+    $('g-hear').addEventListener('click', () => game?.replay());
+    $('g-mute').addEventListener('click', () => {
+      const m = !isMuted(); setMuted(m);
+      $('g-mute').setAttribute('aria-pressed', String(m)); $('g-mute').setAttribute('aria-label', m ? 'Sound off' : 'Sound on');
+      if (!m) startAmbience();
+    });
+    async function endGame(r) {
+      stopAmbience();
+      const before = progress.lessonGrown;
+      if (r.grown) progress.lessonGrown = true;
+      const pr = phrase(r.accuracy >= 95 ? 'mumtaz' : r.accuracy >= 80 ? 'jayyid' : 'ahsant', me.gender);
+      $('g-praise').textContent = pr.ar;
+      $('g-end-h').textContent = `${r.first} of ${r.rounds} lanterns lit first time`;
+      const stats = [['Letters known', `${r.known} of 28`], ['Time', `${r.minutes} min`]];
+      if (r.score != null) stats.unshift(['Score', r.score.toLocaleString()], ['Your best', String(r.best ?? r.score)]);
+      $('g-stats').replaceChildren(...stats.map(([k, v]) => { const d = document.createElement('div'); const a = document.createElement('small'); a.textContent = k; const b = document.createElement('b'); b.textContent = v; d.append(a, b); return d; }));
+      $('g-garden').textContent = r.grown ? (before ? 'Your Lesson 1 palm is fully grown. Keep its lanterns bright.' : 'Masha’Allah! You know all 28 letters. Your first date palm has grown in your garden.') : `Your Lesson 1 sprout is growing: you have lit ${r.lit} of the 28 letters and know ${r.known}. Light each letter right the first time, twice, to know it.`;
+      $('g-practise').textContent = r.practise.length ? `Practise these: ${r.practise.join('  ')}` : '';
+      $('g-end').hidden = false;
+      speak(pr);
+      if (r.grown && !before) nasheed('milestone');
+      await saveProgress({ token: me.token, username: me.username, progress });
+      logGame({ token: me.token, game: { game: 'Noor Lanterns', lesson: 'Lesson 1 · Letters', rounds: r.rounds, first: r.first, accuracy: r.accuracy, score: r.score ?? '', practise: r.practise.join(' '), known: r.known, minutes: r.minutes } });
+    }
+    $('g-again').addEventListener('click', () => startGame());
+    $('g-home').addEventListener('click', () => { stopGame(); goHub(); });
+    addEventListener('beforeunload', (e) => { if (engine && engine.phase !== 'done') { e.preventDefault(); e.returnValue = ''; } });
   </script>
-</Base>
+</body>
+</html>

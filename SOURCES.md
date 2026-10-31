@@ -1,14 +1,12 @@
 # Sources and licences
 
-| Data | Source | Licence | How it is used |
+| What | From | Licence | How it is used |
 |---|---|---|---|
 | Quran text (Uthmani, v1.1) | [Tanzil Project](https://tanzil.net) | CC BY 3.0, verbatim copies only | `sources/tanzil/quran-uthmani.xml`, committed unchanged. The notice is copied into every derived JSON file. |
-| Morphology (v0.4) | [Quranic Arabic Corpus](https://corpus.quran.com), Kais Dukes | GNU GPL | `sources/corpus/…-0_4.txt`, committed unchanged. Converted from Buckwalter to Arabic script for display. |
-| Translations, page/juz metadata | [AlQuran.cloud](https://alquran.cloud) | As published by each edition | Fetched at build time. |
-| Recitations | [EveryAyah](https://everyayah.com) | As published by each reciter | Streamed directly; not stored. |
-| Word by word (optional) | [Quran Foundation](https://quran.foundation) | Quran Foundation API terms | Fetched at build time with repository secrets. |
-| Mushaf layout (KFGQPC V2, 604 × 15 lines) | [QUL, Tarteel](https://qul.tarteel.ai) | As published on QUL | `sources/qul/qpc-v2-15-lines.db` (original) and `layout-qpc-v2-15.json` (same rows as JSON). |
-| Quran font | KFGQPC HAFS Uthmanic Script v2.2 | KFGQPC free end-user licence: use, copy, distribute; no modification | `public/fonts/UthmanicHafs_V22.ttf`, unmodified. |
-| Other fonts | Google Fonts: Amiri Quran, IBM Plex | SIL Open Font Licence | Loaded from Google Fonts. |
-
-Do not edit the files in `sources/`. If you find an error, report it to the original project.
+| Mushaf layout (KFGQPC V2, 604 × 15 lines) | [QUL, Tarteel](https://qul.tarteel.ai) | As published on QUL | `sources/qul/layout-qpc-v2-15.json`. |
+| KFGQPC Uthmanic Hafs font | King Fahd Glorious Quran Printing Complex | KFGQPC font licence | `public/fonts/UthmanicHafs_V22.ttf`, as in the main app. |
+| Recitations (the Sheikh's voice) | [EveryAyah](https://everyayah.com) | As published by each reciter | Streamed directly; not stored. |
+| Word audio (the Sheikh's prompts) | [Quran.com](https://quran.com) word-by-word audio | As published | Streamed directly; not stored. |
+| Face Landmarker model and runtime | [Google MediaPipe](https://ai.google.dev/edge/mediapipe) | Apache 2.0 | Runtime from the `@mediapipe/tasks-vision` package; model downloaded at build time. |
+| Speech model `qaaf-asr` (optional) | Qa-af Wal Quran-ul-Majeed | As in the main app | Copied from the main app's GitHub release at build time. |
+| Logo | Al-Huda Islamic Centre | Belongs to Al-Huda Islamic Centre | `public/logo-*.png`, `icon-192.png`, `apple-touch-icon.png`, `favicon-64.png`. |

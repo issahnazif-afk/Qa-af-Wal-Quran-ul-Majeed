@@ -136,10 +136,11 @@ export class LocalRecognition {
   }
 
   async tick() {
-    if (!this.running || this.busy || !this.speaking || this.segLen < 4000) return;
+    if (!this.running || this.busy || !this.speaking || this.segLen < 3200) return;
     this.busy = true;
     try {
-      const final = this.silent > 650 || this.segLen > 16000 * 14;
+      // shorter pieces decode faster, so words keep up with the reciter (was 14 s)
+      const final = this.silent > 500 || this.segLen > 16000 * 6;
       const audio = new Float32Array(this.segLen);
       let o = 0; for (const c of this.seg) { audio.set(c, o); o += c.length; }
       const { ort, sess, featurize, vocab } = this.m;

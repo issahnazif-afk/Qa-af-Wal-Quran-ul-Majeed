@@ -1,0 +1,159 @@
+/* Al-Huda Islamic Centre look, matched to alhudaislamiccentre.ca.
+   Loaded last, so it restyles the classroom without touching its logic.
+   Deep forest green, AIC green, a muted gold, a display serif for headings
+   and a light geometric sans for everything else. */
+
+:root, :root[data-theme="light"] {
+  --aic-deep: #0A1712;
+  --aic-deep-2: #0F231B;
+  --aic-green: #12603A;
+  --aic-green-2: #0D4F2F;
+  --aic-gold: #C29F4B;
+  --aic-gold-soft: #F4EBD4;
+  --aic-cream: #FAF8F3;
+
+  --bg: var(--aic-cream);
+  --surface: #FFFFFF;
+  --ink: #14211B;
+  --muted: #56625C;
+  --line: #E6E2D8;
+  --field: #CFCABD;
+  --accent: var(--aic-green);
+  --accent-ink: #FFFFFF;
+  --accent-soft: #EEF4EF;
+  --accent-strong: var(--aic-green-2);
+  --marker: #9A7A2E;
+  --font-ui: 'Manrope', system-ui, -apple-system, 'Segoe UI', sans-serif;
+  --font-display: 'Playfair Display', 'DM Serif Display', Georgia, 'Times New Roman', serif;
+  --pattern: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='120' height='120' viewBox='0 0 120 120'%3E%3Cg fill='none' stroke='%23C29F4B' stroke-width='1' opacity='.55'%3E%3Cpath d='M60 8 L74 46 L112 60 L74 74 L60 112 L46 74 L8 60 L46 46 Z'/%3E%3Cpath d='M23 23 L60 38 L97 23 L82 60 L97 97 L60 82 L23 97 L38 60 Z'/%3E%3Ccircle cx='60' cy='60' r='14'/%3E%3Cpath d='M0 0 L8 0 M0 0 L0 8 M120 0 L112 0 M120 0 L120 8 M0 120 L8 120 M0 120 L0 112 M120 120 L112 120 M120 120 L120 112'/%3E%3C/g%3E%3C/svg%3E");
+  --arrow: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2312603A' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 16 16 8M9 8h7v7'/%3E%3C/svg%3E");
+  --arrow-w: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23FFFFFF' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 16 16 8M9 8h7v7'/%3E%3C/svg%3E");
+}
+
+body.cr { font-family: var(--font-ui); background: var(--bg); color: var(--ink); -webkit-font-smoothing: antialiased; }
+
+/* ── type ───────────────────────────────────────────────────── */
+.cr h1, .cr h2, .cr .h2, .cr .display, .act b, .lesson-card h2, .g-end-card h2 { font-family: var(--font-display); font-weight: 600; letter-spacing: -.01em; color: var(--ink); }
+.cr h1 { font-size: 38px; line-height: 1.15; }
+.cr .h2 { font-size: 21px; }
+.cr .display { margin: 0; font-size: clamp(40px, 4.6vw, 64px); line-height: 1.08; font-weight: 600; }
+.cr .display em, .cr h1 em { font-style: italic; color: var(--aic-gold); font-weight: 500; }
+.eyebrow { display: inline-flex; align-items: center; gap: 10px; margin: 0; font-size: 15px; font-weight: 500; color: #E8EDE9; letter-spacing: .01em; }
+.eyebrow.dark { color: var(--muted); font-size: 14px; text-transform: uppercase; letter-spacing: .12em; font-weight: 600; }
+.star { width: 10px; height: 10px; flex: none; background: var(--aic-gold); clip-path: polygon(50% 0, 62% 38%, 100% 50%, 62% 62%, 50% 100%, 38% 62%, 0 50%, 38% 38%); }
+
+/* ── buttons: pills, primary carries the site's circled arrow ── */
+.cr .btn { border-radius: 999px; font-family: var(--font-ui); font-weight: 600; padding: 0 22px; border-color: var(--line); }
+.cr .btn:hover { border-color: var(--aic-green); color: var(--aic-green); }
+.cr .btn-primary { background: var(--aic-green); border-color: var(--aic-green); color: #fff; }
+.cr .btn-primary:hover { background: var(--aic-green-2); border-color: var(--aic-green-2); color: #fff; filter: none; }
+.cr .btn-primary.big { justify-content: space-between; padding: 0 8px 0 28px; gap: 18px; }
+.cr .btn-primary.big::after { content: ''; width: 38px; height: 38px; flex: none; border-radius: 50%; background: #fff var(--arrow) center / 20px no-repeat; transition: transform .2s; }
+.cr .btn-primary.big:hover::after { transform: rotate(45deg); }
+.cr .btn-primary.big:disabled::after { opacity: .7; }
+.cr .btn.danger { border-color: #E3C3BF; background: #fff; }
+.cr .btn.danger:hover { border-color: var(--bad); color: var(--bad); }
+.cr .btn.link { color: var(--aic-green); }
+.cr .btn:focus-visible { outline-color: var(--aic-gold); }
+
+/* ── cards, fields, pills ───────────────────────────────────── */
+.cr .card { border-radius: 20px; border-color: var(--line); box-shadow: 0 1px 2px rgba(20, 33, 27, .04); }
+.cr .card.soft { background: var(--aic-gold-soft); }
+.cr .card.soft .accent-ink, .cr .card.soft .h2 { color: #6E5420; }
+.cr .fld { font-weight: 600; font-size: 14px; }
+.cr .fld input, .cr .fld select { border-radius: 12px; border-color: var(--field); background: #fff; }
+.cr .fld input:focus, .cr .fld select:focus { outline: 2px solid var(--aic-green); border-color: var(--aic-green); }
+.cr .pill { background: var(--accent-soft); color: var(--aic-green-2); }
+.cr .pill.gold { background: var(--aic-gold-soft); color: #6E5420; }
+.cr .err { color: var(--bad); }
+.gpick span { border-radius: 14px; }
+.gpick input:checked + span { border-color: var(--aic-green); background: var(--accent-soft); color: var(--aic-green-2); }
+.si-tabs { background: #EFECE4; border-radius: 999px; padding: 5px; }
+.si-tabs button { border-radius: 999px; font-family: var(--font-ui); }
+.si-tabs button[aria-selected="true"] { color: var(--aic-green-2); box-shadow: 0 1px 3px rgba(20, 33, 27, .12); }
+.demo-note { border-radius: 12px; background: var(--aic-gold-soft); color: #5B4513; }
+
+/* ── the floating pill nav ──────────────────────────────────── */
+.flow > .topbar, .hero > .topbar { position: sticky; top: 16px; z-index: 30; width: calc(100% - 48px); max-width: 1240px; margin: 16px auto 0; padding: 10px 12px 10px 18px; border: 1px solid var(--line); border-radius: 999px; background: rgba(255, 255, 255, .94); backdrop-filter: blur(12px); box-shadow: 0 6px 24px rgba(10, 23, 18, .08); box-sizing: border-box; }
+.cr .topbar .brand b { font-family: var(--font-ui); font-weight: 800; font-size: 16px; letter-spacing: -.01em; }
+.cr .topbar .brand small { font-size: 12.5px; }
+.cr .topbar .brand-logo { width: 40px; height: 40px; }
+.steps li { border-radius: 999px; }
+.steps li.on { background: var(--aic-green); color: #fff; }
+.who { display: inline-flex; align-items: center; gap: 12px; font-weight: 600; font-size: 15px; }
+.who .btn { min-height: 40px; }
+.navb { border-radius: 999px; }
+
+/* on the dark hero the nav goes glass, as on the site */
+.topbar.on-dark { position: relative; top: auto; background: rgba(255, 255, 255, .06); border-color: rgba(255, 255, 255, .14); box-shadow: none; }
+.topbar.on-dark .brand b, .topbar.on-dark .who { color: #fff; }
+.topbar.on-dark .brand small { color: rgba(255, 255, 255, .7); }
+.topbar.on-dark .pill.gold { background: rgba(194, 159, 75, .18); color: #EAD7A6; }
+.topbar.on-dark .btn { background: #fff; border-color: #fff; color: var(--aic-green); }
+.topbar.on-dark .btn:hover { background: var(--aic-gold-soft); }
+
+/* ── dark hero (sign in, Classroom home) ────────────────────── */
+.hero, .si-brand {
+  position: relative; color: #fff; isolation: isolate;
+  background:
+    radial-gradient(ellipse 80% 70% at 85% 10%, rgba(18, 96, 58, .45), transparent 60%),
+    radial-gradient(ellipse 60% 60% at 0% 100%, rgba(18, 96, 58, .18), transparent 60%),
+    linear-gradient(160deg, var(--aic-deep-2), var(--aic-deep) 70%);
+}
+.hero::before, .si-brand::before { content: ''; position: absolute; inset: 0; z-index: -1; background: var(--pattern) center / 120px; opacity: .10; mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.5) 70%, transparent 100%); -webkit-mask-image: linear-gradient(180deg, #000 0%, rgba(0,0,0,.5) 70%, transparent 100%); pointer-events: none; }
+.hero .display, .si-brand .display { color: #fff; }
+.hero { padding-bottom: 56px; }
+.hero-body { max-width: 1240px; margin: 0 auto; padding: 72px 48px 0; display: flex; flex-direction: column; gap: 20px; box-sizing: border-box; }
+.hero-lead, .si-text { font-size: 18px; font-weight: 300; line-height: 1.6; color: rgba(232, 237, 233, .82); max-width: 560px; }
+
+/* glass stat cards */
+.stats { display: flex; flex-wrap: wrap; gap: 16px; margin-top: 18px; }
+.stat { min-width: 170px; padding: 18px 22px; border-radius: 20px; border: 1px solid rgba(255, 255, 255, .14); background: rgba(255, 255, 255, .05); backdrop-filter: blur(8px); display: flex; flex-direction: column; gap: 4px; }
+.stat b { font-family: var(--font-display); font-weight: 600; font-size: 30px; line-height: 1.15; color: #fff; }
+.stat span { font-size: 14px; font-weight: 300; color: rgba(232, 237, 233, .75); }
+
+/* sign in */
+.signin { background: var(--aic-cream); }
+.si-brand { padding: 40px 64px 40px; justify-content: space-between; }
+.si-brand .brand b { color: #fff; font-family: var(--font-ui); font-weight: 800; }
+.si-brand .brand small { color: rgba(255, 255, 255, .7); }
+.si-hero { align-items: flex-start; text-align: left; gap: 22px; max-width: 620px; }
+.si-foot { font-size: 13px; color: rgba(232, 237, 233, .6); }
+.si-form h1 { font-size: 34px; }
+
+/* ── Classroom home: activity cards ─────────────────────────── */
+#s-home .flow-main { padding-top: 44px; gap: 18px; }
+.acts { grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); gap: 22px; }
+.act { position: relative; border-radius: 22px; padding: 26px 26px 28px; border-color: var(--line); min-height: 250px; gap: 10px; transition: transform .2s, box-shadow .2s, border-color .2s; }
+.act:hover { transform: translateY(-3px); border-color: rgba(18, 96, 58, .35); box-shadow: 0 14px 36px rgba(10, 23, 18, .10); }
+.act b { font-size: 26px; }
+.act-ar { color: var(--aic-green-2); }
+.act-ic { border-radius: 50%; background: var(--accent-soft); }
+.act-go { position: absolute; right: 22px; top: 22px; width: 42px; height: 42px; border-radius: 50%; background: var(--aic-green) var(--arrow-w) center / 20px no-repeat; transition: transform .2s; }
+.act:hover .act-go { transform: rotate(45deg); }
+.act.soon .act-go { display: none; }
+.act-alifba { background: linear-gradient(160deg, var(--aic-deep-2), var(--aic-deep)); border-color: var(--aic-deep); }
+.act-alifba b { color: #fff; }
+.act-alifba .act-ar { color: #E3C67E; }
+.act-alifba .act-ic { background: rgba(194, 159, 75, .16); }
+.act-alifba .act-go { background-color: #fff; background-image: var(--arrow); }
+
+/* ── other screens pick up the same language ────────────────── */
+.cr .tile-tag, .cr .cam-tag { font-family: var(--font-ui); font-weight: 600; }
+.cam-guide ellipse { stroke: var(--aic-gold); }
+.room-bar { background: #fff; border-bottom: 1px solid var(--line); }
+.room-bar .rb-title b { font-family: var(--font-display); font-size: 19px; font-weight: 600; }
+.timer { font-variant-numeric: tabular-nums; }
+.metric { border-radius: 18px !important; }
+.metric b { font-family: var(--font-display); font-weight: 600; }
+.r-praise, .g-praise { color: var(--aic-green-2); }
+.lesson-card { border-radius: 22px; }
+.g-stats div { border-radius: 16px; }
+.g-stats b { font-family: var(--font-display); }
+
+@media (max-width: 900px) {
+  .si-brand { padding: 32px 28px; }
+  .hero-body { padding: 48px 24px 0; }
+  .flow > .topbar, .hero > .topbar { width: calc(100% - 24px); border-radius: 24px; }
+}
+@media (prefers-reduced-motion: reduce) { .act, .act-go, .btn-primary.big::after { transition: none; } }
