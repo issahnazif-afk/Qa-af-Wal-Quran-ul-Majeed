@@ -39,10 +39,18 @@ with torch.no_grad():
     t = time.time(); [model_cpu(x, l) for _ in range(5)]; dt = (time.time() - t) / 5
 log(f'speed: 6 s of audio in {dt * 1000:.0f} ms on one CPU core ({6 / dt:.0f}x real time)')
 
-torch.onnx.export(model_cpu, (x, l), os.path.join(out, 'qaaf-asr.onnx'), input_names=['features', 'length'],
-                  output_names=['logprobs', 'out_length'], opset_version=17,
-                  dynamic_axes={'features': {0: 'batch', 2: 'frames'}, 'length': {0: 'batch'}, 'logprobs': {0: 'batch', 1: 'steps'}, 'out_length': {0: 'batch'}})
-log('exported', os.path.getsize(os.path.join(out, 'qaaf-asr.onnx')) // 1024, 'KB')
+# the trained weights, small (no optimiser state); GitHub turns this into the app's ONNX file
+torch.save({'model': model_cpu.state_dict(), 'letters': LETTERS, 'epoch': ck.get('epoch'), 'metrics': ck.get('metrics')},
+           os.path.join(out, 'qaaf-asr.pt'))
+log('saved', os.path.getsize(os.path.join(out, 'qaaf-asr.pt')) // 1024, 'KB: qaaf-asr.pt')
+try:
+    import onnx  # noqa: F401  (not available on CAIR's IBM Power nodes: GitHub does the ONNX export)
+    torch.onnx.export(model_cpu, (x, l), os.path.join(out, 'qaaf-asr.onnx'), input_names=['features', 'length'],
+                      output_names=['logprobs', 'out_length'], opset_version=17,
+                      dynamic_axes={'features': {0: 'batch', 2: 'frames'}, 'length': {0: 'batch'}, 'logprobs': {0: 'batch', 1: 'steps'}, 'out_length': {0: 'batch'}})
+    log('exported', os.path.getsize(os.path.join(out, 'qaaf-asr.onnx')) // 1024, 'KB')
+except ImportError:
+    log('onnx is not installed here: upload qaaf-asr.pt to GitHub and run "Speech model - publish" to make the ONNX file')
 sd = torch.load(os.path.join(HOME, 'model', 'model_weights.ckpt'), map_location='cpu'); sd = sd.get('state_dict', sd)
 json.dump({**FEAT, 'window': sd['preprocessor.featurizer.window'].tolist(), 'fb': sd['preprocessor.featurizer.fb'].reshape(80, -1).tolist()},
           open(os.path.join(out, 'features.json'), 'w'))
