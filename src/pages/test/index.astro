@@ -8,6 +8,9 @@ const meta = getMeta();
 ---
 <Base title="Hifz test" active="test" description="The Sheikh recites a random ayah. You continue from it, from memory, until he asks you to stop.">
   <style is:global>
+    .practice .w { position: relative; }
+    .practice .w.live::after { content: ''; position: absolute; right: 0; bottom: -1px; height: 4px; width: calc(var(--p, 0) * 100%); background: var(--accent); opacity: .9; transition: width .08s linear; border-radius: 2px; pointer-events: none; }
+
     @property --ink { syntax: '<percentage>'; inherits: false; initial-value: 100%; }
 
     .practice.page { padding-top: 28px; display: flex; flex-direction: column; gap: 16px; }
@@ -293,6 +296,7 @@ const meta = getMeta();
     import { u } from '../../lib/url.mjs';
     import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
     import { attachSwipe } from '../../lib/swipe.mjs';
+    import { createLiveCursor } from '../../lib/livecursor.mjs';
 
     const $ = (id) => document.getElementById(id);
     const SR = getSpeechRecognition();
@@ -930,7 +934,10 @@ const meta = getMeta();
       armSilence();
       follower.handle(results, from);
     }
+    let live = null;
     function startListening() {
+      if (!live) live = createLiveCursor({ getFlat: () => flat, getPos: () => pos, onPage: (w) => w.page === shownPage });
+      live.start();
       if (!SR || listening) return;
       rec = tuneRecognition(new SR());
       rec.lang = 'ar-SA';
@@ -952,6 +959,7 @@ const meta = getMeta();
       try { rec.start(); listening = true; $('t-mic').setAttribute('aria-pressed', 'true'); } catch { status('Could not start the microphone. Reload the page and try again.', 'bad'); }
     }
     function stopListening() {
+      live?.stop();
       listening = false;
       try { rec?.stop(); } catch {}
       $('t-mic')?.setAttribute('aria-pressed', 'false');

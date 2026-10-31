@@ -113,7 +113,7 @@ export class LocalRecognition {
     src.connect(this.proc); this.proc.connect(this.ctx.destination);
     this.seg = []; this.segLen = 0; this.pre = []; this.silent = 0; this.speaking = false; this.floor = 0.004; this.cur = -1;
     this.proc.onaudioprocess = (e) => this.push(e.inputBuffer.getChannelData(0));
-    this.timer = setInterval(() => this.tick(), 220);
+    this.timer = setInterval(() => this.tick(), 150);
     this.running = true;
   }
 
