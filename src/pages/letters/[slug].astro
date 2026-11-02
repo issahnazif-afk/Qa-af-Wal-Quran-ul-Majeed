@@ -1,0 +1,90 @@
+---
+import Base from '../../layouts/Base.astro';
+import { letters } from '../../lib/huroof.mjs';
+import { u } from '../../lib/url.mjs';
+export function getStaticPaths() {
+  return letters.map((l, i) => ({ params: { slug: l.slug }, props: { l, prev: letters[i - 1], next: letters[i + 1] } }));
+}
+const { l, prev, next } = Astro.props;
+const formNames = [['isolated', 'منفرد', 'Isolated'], ['initial', 'أول', 'Initial'], ['medial', 'وسط', 'Middle'], ['final', 'آخر', 'Final']];
+---
+<Base title={`${l.nameEn} ${l.letter}`} description={`The Arabic letter ${l.nameEn} (${l.letter}): forms, makhraj and short vowels.`} active="letters">
+  <div class="narrow" style="padding-top:24px;display:flex;flex-direction:column;gap:14px">
+    <a href={u('letters/')} class="muted" style="font-size:14px">← All letters</a>
+    <section class="card lhero">
+      <div class="big" lang="ar">{l.letter}</div>
+      <div style="display:flex;flex-direction:column;gap:4px">
+        <h1 style="margin:0"><span lang="ar" style="font-family:var(--font-ar-ui)">{l.nameAr}</span> · {l.nameEn}</h1>
+        <button class="btn say" type="button" data-say={l.say}>🔊 Listen: <span lang="ar">{l.say}</span></button>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Forms</h2>
+      <div class="forms" dir="rtl">
+        {formNames.map(([k, a, e]) => l.forms[k] && (
+          <div class="form"><span class="fch" lang="ar">{l.forms[k]}</span><span lang="ar" class="muted">{a}</span><span class="muted" dir="ltr">{e}</span></div>
+        ))}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Makhraj · where it is pronounced from</h2>
+      <p lang="ar" dir="rtl" class="ar">{l.makhrajAr}</p>
+      <p>{l.makhrajEn}</p>
+    </section>
+
+    <section class="card">
+      <h2>Short and long vowels</h2>
+      <div class="syl" dir="rtl">
+        {l.syllables.map((s) => (
+          <button class="scard" type="button" data-say={s.text}>
+            <span class="sch" lang="ar">{s.text}</span>
+            <span lang="ar">{s.nameAr}</span><span class="muted" dir="ltr">{s.nameEn}</span>
+            <small lang="ar" class="muted">{s.hintAr}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>About the letter</h2>
+      <p lang="ar" dir="rtl" class="ar">{l.descAr}</p>
+      <p>{l.descEn}</p>
+    </section>
+
+    <nav style="display:flex;justify-content:space-between;gap:10px">
+      {prev ? <a class="btn" href={u(`letters/${prev.slug}/`)}>← {prev.nameEn} {prev.letter}</a> : <span></span>}
+      {next && <a class="btn" href={u(`letters/${next.slug}/`)}>{next.nameEn} {next.letter} →</a>}
+    </nav>
+    <p class="muted" style="font-size:13px;margin:0">Notes adapted from the open-source Huroof project (MIT). A learning aid; for tajwīd, a qualified teacher is the reference.</p>
+  </div>
+  <style>
+    .card { padding: 14px 16px; }
+    .lhero { display: flex; align-items: center; gap: 20px; }
+    .lhero .big { font-family: var(--font-quran); font-size: 96px; line-height: 1.2; color: var(--accent-strong); min-width: 110px; text-align: center; }
+    .card h2 { margin: 0 0 8px; font-size: 18px; }
+    .card p { margin: 0 0 8px; line-height: 1.65; }
+    .card p.ar { font-family: var(--font-ar-ui); font-size: 17px; }
+    .forms { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 8px; }
+    .form { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px; border: 1px solid var(--line); border-radius: 12px; }
+    .fch { font-family: var(--font-quran); font-size: 40px; line-height: 1.5; }
+    .syl { display: grid; grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); gap: 8px; }
+    .scard { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 6px; border: 1px solid var(--line); border-radius: 12px; background: var(--surface); color: var(--ink); font: inherit; cursor: pointer; }
+    .scard:hover { border-color: var(--accent); }
+    .sch { font-family: var(--font-quran); font-size: 40px; line-height: 1.5; color: var(--accent-strong); }
+    .scard small { text-align: center; line-height: 1.4; }
+  </style>
+  <script>
+    // pronounce with the device's Arabic voice
+    const voice = () => speechSynthesis.getVoices().find((v) => v.lang?.toLowerCase().startsWith('ar'));
+    document.querySelectorAll('[data-say]').forEach((b) => b.addEventListener('click', () => {
+      if (!('speechSynthesis' in window)) return;
+      speechSynthesis.cancel();
+      const u = new SpeechSynthesisUtterance(b.dataset.say);
+      u.lang = 'ar-SA'; u.rate = 0.75;
+      const v = voice(); if (v) u.voice = v;
+      speechSynthesis.speak(u);
+    }));
+  </script>
+</Base>

@@ -1,0 +1,29 @@
+---
+import Base from '../../layouts/Base.astro';
+import { letters } from '../../lib/huroof.mjs';
+import { u } from '../../lib/url.mjs';
+---
+<Base title="Letters and makharij" description="The 28 Arabic letters: their forms, where each is pronounced from, and the short vowels." active="letters">
+  <div class="narrow" style="padding-top:28px;display:flex;flex-direction:column;gap:16px">
+    <h1 style="margin:0">Letters and makharij <span lang="ar" style="font-family:var(--font-ar-ui);font-weight:600">الحروف ومخارجها</span></h1>
+    <p class="muted" style="margin:0">Tap a letter to see its forms, where it is pronounced from, and its short vowels. Listen with the 🔊 buttons.</p>
+    <div class="lgrid" dir="rtl">
+      {letters.map((l) => (
+        <a class="lcard" href={u(`letters/${l.slug}/`)}>
+          <span class="lch" lang="ar">{l.letter}</span>
+          <span class="lnm" lang="ar">{l.nameAr}</span>
+          <span class="len" dir="ltr">{l.nameEn}</span>
+        </a>
+      ))}
+    </div>
+    <p class="muted" style="font-size:13px;margin:0">Letter notes adapted from the open-source Huroof project (MIT licence). They are a learning aid; for tajwīd, a qualified teacher is the reference.</p>
+  </div>
+  <style>
+    .lgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 10px; }
+    .lcard { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 12px 6px 10px; border: 1px solid var(--line); border-radius: 14px; background: var(--surface); text-decoration: none; color: var(--ink); }
+    .lcard:hover { border-color: var(--accent); }
+    .lch { font-family: var(--font-quran); font-size: 44px; line-height: 1.3; color: var(--accent-strong); }
+    .lnm { font-family: var(--font-ar-ui); font-size: 15px; font-weight: 600; }
+    .len { font-size: 12px; color: var(--muted); }
+  </style>
+</Base>

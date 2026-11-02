@@ -1,0 +1,176 @@
+---
+import Base from '../layouts/Base.astro';
+import { getMeta } from '../lib/data.mjs';
+import { u } from '../lib/url.mjs';
+const meta = getMeta();
+const resources = [
+  ['script', 'Quran script', 'The Uthmani Arabic text of all 6,236 ayahs, verified and unaltered.', 'Tanzil'],
+  ['translations', 'Translations', 'Ayah-by-ayah translations of the meanings.', 'AlQuran.cloud'],
+  ['recitations', 'Recitations', 'Ayah-by-ayah audio from several well-known reciters.', 'EveryAyah'],
+  ['morphology', 'Morphology', 'Root, lemma and part of speech for every word.', 'Quranic Arabic Corpus'],
+  ['wbw', 'Word by word', 'The meaning and transliteration of each word.', 'Quran Foundation'],
+  ['metadata', 'Metadata', 'Surah, juz, page and sajdah boundaries for the 604-page mushaf.', 'AlQuran.cloud'],
+];
+---
+<Base active="home">
+  <style>
+    .hero { background: var(--surface); border-bottom: 1px solid var(--line); }
+    .hero .wrap { padding-top: 64px; padding-bottom: 56px; display: flex; flex-wrap: wrap; gap: 40px; align-items: center; }
+    .hero-text { flex: 999 1 520px; min-width: 0; display: flex; flex-direction: column; gap: 18px; }
+    h1 { margin: 0; font-size: clamp(30px, 4vw, 44px); line-height: 1.15; letter-spacing: -0.5px; }
+    .lede { margin: 0; font-size: 18px; color: var(--muted); max-width: 620px; }
+    .search-row { display: flex; gap: 8px; max-width: 640px; }
+    .search-row input { flex: 1 1 auto; min-width: 0; height: 52px; font-size: 16px; padding: 0 16px; border-radius: 10px; }
+    .search-row .btn { height: 52px; border-radius: 10px; padding: 0 24px; }
+    .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+    .resume { flex: 1 1 320px; min-width: 0; background: var(--accent-soft); border-radius: 16px; padding: 28px; display: flex; flex-direction: column; gap: 12px; }
+    .resume-label { font-size: 14px; font-weight: 600; color: var(--accent-strong); }
+    .resume .quran { font-size: 30px; line-height: 1.9; }
+    section.block { padding-top: 56px; display: flex; flex-direction: column; gap: 20px; }
+    .block-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: end; gap: 16px; }
+    h2 { margin: 0; font-size: 28px; }
+    .tabs { display: flex; gap: 4px; background: var(--line); padding: 4px; border-radius: 10px; }
+    .tabs button { min-height: 44px; padding: 0 18px; border: none; border-radius: 8px; background: transparent; font: inherit; color: var(--ink); cursor: pointer; }
+    .tabs button[aria-selected="true"] { background: var(--surface); font-weight: 600; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; }
+    .surah { display: flex; align-items: center; gap: 16px; padding: 16px; text-decoration: none; color: var(--ink); }
+    .surah:hover { border-color: var(--accent); color: var(--ink); }
+    .num { width: 40px; height: 40px; flex: none; display: grid; place-items: center; position: relative; font-weight: 600; font-size: 14px; color: var(--accent); }
+    .num::before { content: ''; position: absolute; inset: 6px; border: 1.5px solid var(--accent); border-radius: 6px; transform: rotate(45deg); }
+    .surah-main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; }
+    .surah-main b { font-size: 16px; }
+    .surah-side { display: flex; flex-direction: column; align-items: end; white-space: nowrap; }
+    .surah-side .ar-ui { font-weight: 600; font-size: 18px; }
+    .small { font-size: 13px; color: var(--muted); }
+    .juz { padding: 16px; text-decoration: none; color: var(--ink); display: flex; justify-content: space-between; gap: 12px; }
+    .page-jump { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 20px; }
+    .res { display: flex; flex-direction: column; gap: 8px; padding: 22px; text-decoration: none; color: var(--ink); min-height: 170px; }
+    .res:hover { border-color: var(--accent); color: var(--ink); }
+    .res b { font-size: 18px; }
+    .res .src { margin-top: auto; font-size: 13px; color: var(--muted); }
+  </style>
+
+  <section class="hero">
+    <div class="wrap">
+      <div class="hero-text">
+        <h1>Read, listen to and study the Quran, from open and authentic sources.</h1>
+        <p class="lede">Every word of text, translation and recitation here comes from free public datasets, credited on each page.</p>
+        <form action={u('search/')} method="get" role="search" style="display:flex;flex-direction:column;gap:8px">
+          <label class="field-label" for="home-q">Search a surah, an ayah (like 2:255), a page, or a word</label>
+          <div class="search-row">
+            <input class="field" id="home-q" name="q" type="search" placeholder="Al-Kahf, 18:10, page 293, mercy" autocomplete="off" />
+            <button class="btn btn-primary" type="submit">Search</button>
+          </div>
+        </form>
+        <div class="chips">
+          <a class="chip" href={u('surah/18/')}>Al-Kahf</a>
+          <a class="chip" href={u('surah/36/')}>Ya-Sin</a>
+          <a class="chip" href={u('surah/2/#a255')}>Ayat al-Kursi, 2:255</a>
+          <a class="chip" href={u('surah/67/')}>Al-Mulk</a>
+        </div>
+      </div>
+      <div class="resume" id="resume" hidden>
+        <span class="resume-label">Continue reading</span>
+        <div class="quran" id="resume-ar"></div>
+        <span id="resume-meta" style="font-size:15px"></span>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <a class="btn btn-primary" id="resume-link" href="#">Resume</a>
+          <a class="btn" id="resume-page" href="#">Open in mushaf</a>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="wrap">
+    <section class="block" aria-labelledby="browse-h">
+      <div class="block-head">
+        <h2 id="browse-h">Browse the Quran</h2>
+        <div class="tabs" role="tablist" aria-label="Browse by">
+          <button type="button" role="tab" aria-selected="true" aria-controls="tab-surah" id="t-surah">Surah</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="tab-juz" id="t-juz">Juz</button>
+          <button type="button" role="tab" aria-selected="false" aria-controls="tab-page" id="t-page">Page</button>
+        </div>
+      </div>
+      <div id="tab-surah" role="tabpanel" aria-labelledby="t-surah" class="grid">
+        {meta.surahs.map((s) => (
+          <a class="card surah" href={u(`surah/${s.n}/`)}>
+            <span class="num">{s.n}</span>
+            <span class="surah-main"><b>{s.en}</b><span class="small">{s.meaning}</span></span>
+            <span class="surah-side"><span class="ar-ui" lang="ar">{s.ar}</span><span class="small">{s.ayahs} ayahs, {s.type}</span></span>
+          </a>
+        ))}
+      </div>
+      <div id="tab-juz" role="tabpanel" aria-labelledby="t-juz" class="grid" hidden>
+        {meta.juzs.map((j) => {
+          const s = meta.surahs[j.s - 1];
+          const page = meta.pages.findLast((p) => p.s < j.s || (p.s === j.s && p.a <= j.a));
+          return (
+            <a class="card juz" href={u(`page/${page.n}/`)}>
+              <b>Juz {j.n}</b><span class="small">Starts at {s.en} {j.s}:{j.a}</span>
+            </a>
+          );
+        })}
+      </div>
+      <div id="tab-page" role="tabpanel" aria-labelledby="t-page" hidden>
+        <form class="card page-jump" id="page-form">
+          <label class="field-label" for="page-n">Go to mushaf page</label>
+          <input class="field" id="page-n" type="number" min="1" max={meta.pages.length} value="1" style="width:110px" />
+          <span class="muted">of {meta.pages.length}</span>
+          <button class="btn btn-primary" type="submit">Open page</button>
+        </form>
+      </div>
+    </section>
+
+    <section class="block" aria-labelledby="res-h">
+      <div>
+        <h2 id="res-h">Resource library</h2>
+        <p class="muted" style="margin:8px 0 0;max-width:720px">Preview and download the open datasets this site is built on.</p>
+      </div>
+      <div class="grid">
+        {resources.filter(([id]) => id !== 'wbw' || meta.wbw).map(([id, title, desc, src]) => (
+          <a class="card res" href={u(`resources/#${id}`)}>
+            <b>{title}</b>
+            <span class="muted" style="font-size:15px">{desc}</span>
+            <span class="src">Source: {src}</span>
+          </a>
+        ))}
+      </div>
+    </section>
+  </div>
+
+  <script>
+    import { lastRead, getJson, pad } from '../lib/client.mjs';
+    import { qpc } from '../lib/recite.mjs';
+    import { u } from '../lib/url.mjs';
+
+    // tabs
+    const tabs = [...document.querySelectorAll('[role="tab"]')];
+    tabs.forEach((t) => t.addEventListener('click', () => {
+      tabs.forEach((x) => {
+        const on = x === t;
+        x.setAttribute('aria-selected', String(on));
+        document.getElementById(x.getAttribute('aria-controls')).hidden = !on;
+      });
+    }));
+
+    document.getElementById('page-form')?.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const n = Math.min(604, Math.max(1, parseInt(document.getElementById('page-n').value, 10) || 1));
+      location.href = u(`page/${n}/`);
+    });
+
+    // continue reading
+    const lr = lastRead.get();
+    if (lr) {
+      getJson(`surah/${pad(lr.s)}.json`).then((s) => {
+        const ay = s.ayahs.find((x) => x.a === lr.a);
+        if (!ay) return;
+        document.getElementById('resume-ar').textContent = qpc(ay.ar.split(' ').slice(0, 6).join(' '));
+        document.getElementById('resume-meta').textContent = `${s.en}, ${lr.s}:${lr.a}, page ${ay.page}`;
+        document.getElementById('resume-link').href = u(`surah/${lr.s}/#a${lr.a}`);
+        document.getElementById('resume-page').href = u(`page/${ay.page}/`);
+        document.getElementById('resume').hidden = false;
+      }).catch(() => {});
+    }
+  </script>
+</Base>
