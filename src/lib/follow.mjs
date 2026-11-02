@@ -100,6 +100,15 @@ export function createFollower(o) {
         }
         if (m.n) { clearBack(); misses = 0; i += m.n; commit(r, i, spoken); o.accept(m.e); continue; }
 
+        // 2b. still being spoken: the newest interim word is the clear beginning of the expected one
+        if (!res.isFinal && i === spoken.length - 1 && th < 0.8) {     // not in strict checking
+          const t = spoken[i], w = flat[pos];
+          const full = (w.targets || [w.plain]).find((x) => x.startsWith(t));
+          if (full && t.length >= 3 && full.length >= 4 && t.length >= 0.5 * full.length) {
+            clearBack(); misses = 0; i++; commit(r, i, spoken); o.accept(1); continue;
+          }
+        }
+
         // 3. another of the engine's guesses heard the right word
         if (altHeard(res, i, flat, pos, th)) { clearBack(); misses = 0; i++; commit(r, i, spoken); o.accept(1); continue; }
 

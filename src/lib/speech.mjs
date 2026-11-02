@@ -79,14 +79,56 @@ class NativeRecognition {
 
 // Chrome can recognise speech on the device itself (no network round trip, lower delay) where a
 // language pack is installed. Use it when the browser says Arabic is available locally.
-let localSpeech = false;
+let localSpeech = false, localState = 'unavailable';
+const SRclass = () => window.SpeechRecognition || window.webkitSpeechRecognition;
 (async () => {
   try {
-    const S = window.SpeechRecognition || window.webkitSpeechRecognition;
-    if (S?.available) localSpeech = (await S.available({ langs: ['ar-SA'], processLocally: true })) === 'available';
+    const S = SRclass();
+    if (S?.available) { localState = await S.available({ langs: ['ar-SA'], processLocally: true }); localSpeech = localState === 'available'; }
   } catch {}
 })();
+
+// Chrome can download its Arabic speech pack once, after which recognition runs on the device:
+// no network round trip, so words arrive noticeably sooner. Must be called from a tap.
+export async function installLocalSpeech(onState = () => {}) {
+  const S = SRclass();
+  if (!S?.install || localSpeech) return localSpeech;
+  if (localState !== 'downloadable' && localState !== 'downloading') return false;
+  try {
+    onState('downloading');
+    const ok = await S.install({ langs: ['ar-SA'], processLocally: true });
+    localSpeech = !!ok; localState = ok ? 'available' : localState;
+    onState(ok ? 'ready' : 'failed');
+  } catch { onState('failed'); }
+  return localSpeech;
+}
+export const localSpeechState = () => localState;
 export function tuneRecognition(rec) {
   try { if (localSpeech && 'processLocally' in rec) rec.processLocally = true; } catch {}
   return rec;
+}
+
+// Start loading the on-device model as soon as the page opens, so it is ready before the reader starts.
+export function preloadEngine() {
+  let engine = 'speech';
+  try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
+  if (engine !== 'local') return null;
+  return import('./asr-local.mjs').then((m) => m.loadModel());
+}
+
+// Contextual biasing: newer Chrome versions let a page boost expected phrases. We pass the next
+// words of the Quran text, so the recogniser favours them over everyday Arabic look-alikes.
+const DIAC = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
+export function biasTowards(rec, words) {
+  try {
+    const P = window.SpeechRecognitionPhrase;
+    if (!P || !('phrases' in rec)) return;
+    const seen = new Set(), list = [];
+    for (const w of words) {
+      const t = String(w).replace(DIAC, '').replace(/ٱ/g, 'ا').trim();
+      if (t && !seen.has(t)) { seen.add(t); list.push(new P(t, 6.0)); }
+      if (list.length >= 40) break;
+    }
+    rec.phrases = list;
+  } catch {}
 }

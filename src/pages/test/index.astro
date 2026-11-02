@@ -250,6 +250,7 @@ const meta = getMeta();
             <button class="btn" type="button" id="end"><span class="lab-long">End test</span><span class="lab-short">End</span></button>
           </div>
           <p class="status" id="status" aria-live="polite"></p>
+          <p id="asr-heard" lang="ar" dir="rtl" style="margin:0;font-size:13px;color:var(--muted);text-align:center"></p>
           <button class="btn" type="button" id="back-place" hidden style="align-self:center">Back to my place</button>
           <div class="where" id="where"></div>
         </div>
@@ -292,7 +293,7 @@ const meta = getMeta();
     import { getJson, pad, settings, store, audioUrl } from '../../lib/client.mjs';
     import { tokenize, normalize, matchAt, THRESHOLDS } from '../../lib/recite.mjs';
     import { createFollower } from '../../lib/follow.mjs';
-    import { getSpeechRecognition, tuneRecognition } from '../../lib/speech.mjs';
+    import { getSpeechRecognition, tuneRecognition, preloadEngine, installLocalSpeech, biasTowards } from '../../lib/speech.mjs';
     import { u } from '../../lib/url.mjs';
     import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
     import { attachSwipe } from '../../lib/swipe.mjs';
@@ -934,8 +935,23 @@ const meta = getMeta();
       armSilence();
       follower.handle(results, from);
     }
+    // on-device model: load it now, and say when it is ready
+    const modelLoading = preloadEngine();
+    if (modelLoading) {
+      status('Loading the Qāf model (once, about 55 MB)…');
+      modelLoading.then(() => status('Qāf model ready. Press the microphone and recite.'), () => status('The Qāf model could not load. Switch Listening to Phone / browser speech.', 'bad'));
+    }
+    window.addEventListener('ql:asr', (e) => { const h = document.getElementById('asr-heard'); if (h) h.textContent = e.detail.text ? 'Model hears: ' + e.detail.text : ''; });
     let live = null;
+    let askedLocal = false;
     function startListening() {
+      if (!askedLocal && !modelLoading) {          // first tap: ask Chrome for its on-device Arabic pack (faster)
+        askedLocal = true;
+        installLocalSpeech((st) => {
+          if (st === 'downloading') status('Downloading Chrome’s Arabic speech pack, so recognition runs on this device…');
+          if (st === 'ready') status('On-device speech is ready: words will appear faster from the next start.');
+        });
+      }
       if (!live) live = createLiveCursor({ getFlat: () => flat, getPos: () => pos, onPage: (w) => w.page === shownPage });
       live.start();
       if (!SR || listening) return;
@@ -944,6 +960,7 @@ const meta = getMeta();
       rec.continuous = true;
       rec.interimResults = true;
       rec.maxAlternatives = 3;
+      biasTowards(rec, flat.slice(pos, pos + 60).map((w) => w.display));
       follower.reset();
       const me = rec;
       rec.onresult = (e) => { if (me === rec) processResults(e.results, e.resultIndex); };
@@ -955,7 +972,7 @@ const meta = getMeta();
           status('The speech service could not be reached. Check your internet connection.', 'bad');
         }
       };
-      rec.onend = () => { if (listening && me === rec) { follower.reset(); try { rec.start(); } catch {} } };
+      rec.onend = () => { if (listening && me === rec) { follower.reset(); biasTowards(rec, flat.slice(pos, pos + 60).map((w) => w.display)); try { rec.start(); } catch { setTimeout(() => { try { if (listening && me === rec) rec.start(); } catch {} }, 60); } } };
       try { rec.start(); listening = true; $('t-mic').setAttribute('aria-pressed', 'true'); } catch { status('Could not start the microphone. Reload the page and try again.', 'bad'); }
     }
     function stopListening() {
