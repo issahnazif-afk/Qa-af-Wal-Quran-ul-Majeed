@@ -1,12 +1,19 @@
-name: Speech model - test Tarteel Whisper
+name: Speech model - publish
 
-# While CAIR is offline: tests Tarteel's open Quran Whisper models (tiny and base) on real recitations.
+# After training on CAIR: upload qaaf-asr.pt to the release "qaaf-asr-model", then run this.
+# It makes the ONNX file, checks it matches PyTorch, and attaches qaaf-asr.onnx, features.json and
+# vocab.json to the same release. The next website / app build then includes the model.
 on:
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
-  test:
+  publish:
     runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
@@ -14,19 +21,20 @@ jobs:
           python-version: '3.11'
       - name: Install tools
         run: |
-          sudo apt-get update -y && sudo apt-get install -y ffmpeg
           pip install --upgrade pip
           pip install torch==2.5.1 --index-url https://download.pytorch.org/whl/cpu
-          pip install "transformers==4.46.3" librosa
-      - name: Test the models
+          pip install onnx onnxruntime numpy
+      - name: Get the trained model and the original weights
+        shell: bash
+        run: |
+          set -e
+          gh release download qaaf-asr-model -p 'qaaf-asr.pt' -D work
+          curl -sL -o model.nemo https://github.com/yayaiu6/Real-Time-Quran-recitation-tracker-System/raw/main/arabic-asr/conformer_ctc_small_60e_adamw_30wtr_32wv_40wte.nemo
+          python -c "import tarfile; t=tarfile.open('model.nemo'); m=[x for x in t.getmembers() if x.name.endswith('model_weights.ckpt')][0]; m.name='model_weights.ckpt'; t.extract(m, 'work')"
+      - name: Export and verify
         shell: bash
         run: |
           set -o pipefail
-          python -u tools/asr/whisper_eval.py 2>&1 | tee whisper-log.txt
-      - uses: actions/upload-artifact@v5
-        if: always()
-        with:
-          name: whisper-report
-          path: |
-            whisper-report.txt
-            whisper-log.txt
+          python tools/asr/cair/code/export_onnx.py work/qaaf-asr.pt work/model_weights.ckpt out 2>&1 | tee export-log.txt
+      - name: Attach to the release
+        run: gh release upload qaaf-asr-model out/qaaf-asr.onnx out/features.json out/vocab.json --clobber
