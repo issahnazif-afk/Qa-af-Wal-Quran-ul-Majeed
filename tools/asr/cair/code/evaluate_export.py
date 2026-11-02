@@ -46,7 +46,7 @@ log('saved', os.path.getsize(os.path.join(out, 'qaaf-asr.pt')) // 1024, 'KB: qaa
 try:
     import onnx  # noqa: F401  (not available on CAIR's IBM Power nodes: GitHub does the ONNX export)
     torch.onnx.export(model_cpu, (x, l), os.path.join(out, 'qaaf-asr.onnx'), input_names=['features', 'length'],
-                      output_names=['logprobs', 'out_length'], opset_version=17,
+                      output_names=['logprobs', 'out_length'], opset_version=17, do_constant_folding=False,
                       dynamic_axes={'features': {0: 'batch', 2: 'frames'}, 'length': {0: 'batch'}, 'logprobs': {0: 'batch', 1: 'steps'}, 'out_length': {0: 'batch'}})
     log('exported', os.path.getsize(os.path.join(out, 'qaaf-asr.onnx')) // 1024, 'KB')
 except ImportError:

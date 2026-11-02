@@ -23,7 +23,7 @@ print('model from epoch', ck.get('epoch'), 'validation', ck.get('metrics'))
 x = torch.randn(1, 80, 600); l = torch.tensor([600])
 path = os.path.join(out, 'qaaf-asr.onnx')
 torch.onnx.export(model, (x, l), path, input_names=['features', 'length'], output_names=['logprobs', 'out_length'],
-                  opset_version=17, dynamic_axes={'features': {0: 'batch', 2: 'frames'}, 'length': {0: 'batch'},
+                  opset_version=17, do_constant_folding=False, dynamic_axes={'features': {0: 'batch', 2: 'frames'}, 'length': {0: 'batch'},
                                                   'logprobs': {0: 'batch', 1: 'steps'}, 'out_length': {0: 'batch'}})
 print('exported', os.path.getsize(path) // 1024, 'KB')
 
