@@ -33,54 +33,8 @@ export function loadModel() {
   return loading;
 }
 
-// Log-mel features, exactly as in tools/asr/cair/code/qaaf_model.py (Featurizer).
-export function makeFeaturizer(f) {
-  const n = f.n_fft, hop = f.hop, nb = n / 2 + 1, nm = f.fb.length;
-  const win = new Float32Array(n);
-  const off = (n - f.win) >> 1;
-  f.window.forEach((v, i) => { win[off + i] = v; });
-  const fb = f.fb.map((r) => Float32Array.from(r));
-  const bits = Math.log2(n);
-  const rev = new Uint32Array(n);
-  for (let i = 0; i < n; i++) { let r = 0; for (let b = 0; b < bits; b++) r |= ((i >> b) & 1) << (bits - 1 - b); rev[i] = r; }
-  const cosT = new Float32Array(n / 2), sinT = new Float32Array(n / 2);
-  for (let k = 0; k < n / 2; k++) { cosT[k] = Math.cos((2 * Math.PI * k) / n); sinT[k] = -Math.sin((2 * Math.PI * k) / n); }
-  const re = new Float64Array(n), im = new Float64Array(n), pw = new Float64Array(nb);
-
-  return (x) => {
-    const len = x.length, pad = n >> 1;
-    const y = new Float32Array(len + 2 * pad);
-    y[pad] = x[0];
-    for (let i = 1; i < len; i++) y[pad + i] = x[i] - f.preemph * x[i - 1];
-    const T = Math.max(1, Math.floor(len / hop));             // NeMo keeps len // hop frames
-    const out = new Float32Array(nm * T);
-    for (let t = 0; t < T; t++) {
-      for (let i = 0; i < n; i++) { const j = rev[i]; re[j] = (y[t * hop + i] ?? 0) * win[i]; im[j] = 0; }
-      for (let size = 2; size <= n; size <<= 1) {
-        const half = size >> 1, step = n / size;
-        for (let s = 0; s < n; s += size) for (let k = 0; k < half; k++) {
-          const c = cosT[k * step], sn = sinT[k * step];
-          const a = s + k, b = a + half;
-          const tr = re[b] * c - im[b] * sn, ti = re[b] * sn + im[b] * c;
-          re[b] = re[a] - tr; im[b] = im[a] - ti; re[a] += tr; im[a] += ti;
-        }
-      }
-      for (let k = 0; k < nb; k++) pw[k] = re[k] * re[k] + im[k] * im[k];
-      for (let m = 0; m < nm; m++) {
-        let acc = 0; const row = fb[m];
-        for (let k = 0; k < nb; k++) acc += row[k] * pw[k];
-        out[m * T + t] = Math.log(acc + f.log_guard);
-      }
-    }
-    for (let m = 0; m < nm; m++) {
-      let mean = 0; for (let t = 0; t < T; t++) mean += out[m * T + t]; mean /= T;
-      let v = 0; for (let t = 0; t < T; t++) { const d = out[m * T + t] - mean; v += d * d; }
-      const sd = Math.sqrt(v / Math.max(1, T - 1)) + 1e-5;
-      for (let t = 0; t < T; t++) out[m * T + t] = (out[m * T + t] - mean) / sd;
-    }
-    return { data: out, frames: T };
-  };
-}
+import { makeFeaturizer } from './features.mjs';
+export { makeFeaturizer };
 
 function greedy(logp, steps, classes, vocab) {
   let out = '', last = -1;
@@ -103,10 +57,12 @@ export class LocalRecognition {
   async start() {
     try { this.m = await loadModel(); } catch (e) { this.onerror?.({ error: 'network', message: String(e) }); this.onend?.(); return; }
     try {
-      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true } });
+      // raw voice (no noise suppression, which smears recitation), with automatic gain so quiet readers are heard
+      this.stream = await navigator.mediaDevices.getUserMedia({ audio: { channelCount: 1, echoCancellation: false, noiseSuppression: false, autoGainControl: true } });
     } catch { this.onerror?.({ error: 'not-allowed' }); this.onend?.(); return; }
     const AC = window.AudioContext || window.webkitAudioContext;
     try { this.ctx = new AC({ sampleRate: 16000 }); } catch { this.ctx = new AC(); }
+    if (this.ctx.state === 'suspended') { try { await this.ctx.resume(); } catch {} }
     this.ratio = this.ctx.sampleRate / 16000;
     const src = this.ctx.createMediaStreamSource(this.stream);
     this.proc = this.ctx.createScriptProcessor(2048, 1, 1);
@@ -126,7 +82,7 @@ export class LocalRecognition {
     } else x = Float32Array.from(input);
     let e = 0; for (let i = 0; i < x.length; i++) e += x[i] * x[i];
     const rms = Math.sqrt(e / x.length);
-    const loud = rms > Math.max(0.008, this.floor * 3);
+    const loud = rms > Math.max(0.0035, this.floor * 2.5);      // sensitive enough for a quiet voice
     if (!loud) this.floor = 0.95 * this.floor + 0.05 * rms;
     const ms = (x.length / 16000) * 1000;
     if (loud) { if (!this.speaking) { this.seg = [...this.pre]; this.segLen = this.seg.reduce((t, c) => t + c.length, 0); } this.speaking = true; this.silent = 0; }
@@ -151,6 +107,7 @@ export class LocalRecognition {
       const lp = out.logprobs, [, steps, classes] = lp.dims;
       const used = Number(out.out_length.data[0]);
       const text = greedy(lp.data, Math.min(steps, used), classes, vocab);
+      window.dispatchEvent(new CustomEvent('ql:asr', { detail: { text, seconds: audio.length / 16000 } }));
       if (this.cur < 0) this.cur = this.results.length;
       const res = [{ transcript: text }]; res.isFinal = final;
       this.results[this.cur] = res;

@@ -218,7 +218,7 @@ const meta = getMeta();
     import { getJson, pad, settings, store, audioUrl } from '../../lib/client.mjs';
     import { tokenize, normalize, matchAt, THRESHOLDS, buildLocator, locate } from '../../lib/recite.mjs';
     import { createFollower } from '../../lib/follow.mjs';
-    import { getSpeechRecognition, tuneRecognition, preloadEngine, installLocalSpeech, biasTowards } from '../../lib/speech.mjs';
+    import { getSpeechRecognition, tuneRecognition, preloadEngine, installLocalSpeech, biasTowards, phrasesRefused } from '../../lib/speech.mjs';
     import { u } from '../../lib/url.mjs';
     import { buildPaper, fitPaper } from '../../lib/mushaf.mjs';
     import { attachSwipe } from '../../lib/swipe.mjs';
@@ -799,17 +799,19 @@ const meta = getMeta();
     let live = null;
     let askedLocal = false;
     function startListening() {
-      if (!askedLocal && !modelLoading) {          // first tap: ask Chrome for its on-device Arabic pack (faster)
+      if (!live) live = createLiveCursor({ getFlat: () => flat, getPos: () => pos, onPage: (w) => w.page === shownPage });
+      // the live cursor takes the microphone first; only then ask Chrome about on-device Arabic
+      live.start().finally(() => {
+        if (askedLocal || modelLoading) return;
         askedLocal = true;
         installLocalSpeech((st) => {
           if (st === 'downloading') say('Downloading Chrome’s Arabic speech pack, so recognition runs on this device…');
           if (st === 'ready') say('On-device speech is ready: words will appear faster from the next start.');
         });
-      }
-      if (!live) live = createLiveCursor({ getFlat: () => flat, getPos: () => pos, onPage: (w) => w.page === shownPage });
-      live.start();
+      });
       if (!SR || phase === 'done') return;
       rec = tuneRecognition(new SR());
+      rec.getExpected = () => flat.slice(pos, pos + 24).map((w) => w.plain);   // used by the Qāf aligner
       rec.lang = 'ar-SA';
       rec.continuous = true;
       rec.interimResults = true;
@@ -818,6 +820,7 @@ const meta = getMeta();
       follower.reset();
       rec.onresult = (e) => { rec.__lastResults = e.results; processResults(e.results, e.resultIndex); };
       rec.onerror = (e) => {
+        if (phrasesRefused(e)) return;   // biasing not supported here: the restart carries on without it
         if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
           listening = false;
           say('Microphone access is blocked. Allow the microphone for this site in your browser settings, then try again.', 'bad');

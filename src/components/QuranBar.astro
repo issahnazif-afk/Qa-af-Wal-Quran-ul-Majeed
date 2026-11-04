@@ -42,7 +42,8 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
     <label>Listening
       <select id="qb-engine" aria-label="Listening engine">
         <option value="speech">Phone / browser speech</option>
-        <option value="local" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf on-device model' : 'Qāf model (not published yet)'}</option>
+        <option value="align" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf aligner (beta, fastest)' : 'Qāf aligner (model not published yet)'}</option>
+        <option value="local" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf model (free transcription)' : 'Qāf model (not published yet)'}</option>
       </select>
     </label>
     <label>Riwayah
@@ -124,7 +125,7 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
   // listening engine: the phone's speech service, or the Qāf model running on the device
   const engSel = document.getElementById('qb-engine');
   const engSaved = store.get('engine', 'speech');
-  engSel.value = engSaved === 'local' && !engSel.querySelector('option[value="local"]').disabled ? 'local' : 'speech';
+  engSel.value = (engSaved === 'local' || engSaved === 'align') && !engSel.querySelector(`option[value="${engSaved}"]`).disabled ? engSaved : 'speech';
   if (engSel.value !== engSaved) store.set('engine', engSel.value);
   engSel.addEventListener('change', () => {
     store.set('engine', engSel.value);

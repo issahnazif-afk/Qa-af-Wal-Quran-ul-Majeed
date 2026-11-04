@@ -4,11 +4,13 @@
 // @capacitor-community/speech-recognition plugin, wrapped to behave the same way.
 
 import { LocalRecognition } from './asr-local.mjs';
+import { AlignRecognition } from './align-recognition.mjs';
 
 // The reader can choose the on-device Qāf model (menu → Listening engine) once it is published.
 export function getSpeechRecognition() {
   let engine = 'speech';
   try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
+  if (engine === 'align' && navigator.mediaDevices?.getUserMedia) return AlignRecognition;
   if (engine === 'local' && navigator.mediaDevices?.getUserMedia) return LocalRecognition;
   const cap = window.Capacitor;
   if (cap?.isNativePlatform?.()) return NativeRecognition;
@@ -79,19 +81,27 @@ class NativeRecognition {
 
 // Chrome can recognise speech on the device itself (no network round trip, lower delay) where a
 // language pack is installed. Use it when the browser says Arabic is available locally.
-let localSpeech = false, localState = 'unavailable';
+let localSpeech = false, localState = 'unknown';
 const SRclass = () => window.SpeechRecognition || window.webkitSpeechRecognition;
-(async () => {
+// Asking Chrome whether on-device Arabic exists can hang, and while it is pending other microphone
+// requests (the Qāf engines, the live cursor) can be held up. So it is only asked when the reader taps
+// the microphone with browser speech, never for the Qāf engines, and never for longer than 1.5 s.
+async function checkLocal() {
+  if (localState !== 'unknown') return localState;
+  const S = SRclass();
+  if (!S?.available) { localState = 'unavailable'; return localState; }
   try {
-    const S = SRclass();
-    if (S?.available) { localState = await S.available({ langs: ['ar-SA'], processLocally: true }); localSpeech = localState === 'available'; }
-  } catch {}
-})();
+    localState = await Promise.race([S.available({ langs: ['ar-SA'], processLocally: true }), new Promise((r) => setTimeout(() => r('unavailable'), 1500))]);
+  } catch { localState = 'unavailable'; }
+  localSpeech = localState === 'available';
+  return localState;
+}
 
 // Chrome can download its Arabic speech pack once, after which recognition runs on the device:
 // no network round trip, so words arrive noticeably sooner. Must be called from a tap.
 export async function installLocalSpeech(onState = () => {}) {
   const S = SRclass();
+  await checkLocal();
   if (!S?.install || localSpeech) return localSpeech;
   if (localState !== 'downloadable' && localState !== 'downloading') return false;
   try {
@@ -112,23 +122,29 @@ export function tuneRecognition(rec) {
 export function preloadEngine() {
   let engine = 'speech';
   try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
-  if (engine !== 'local') return null;
+  if (engine !== 'local' && engine !== 'align') return null;
   return import('./asr-local.mjs').then((m) => m.loadModel());
 }
 
 // Contextual biasing: newer Chrome versions let a page boost expected phrases. We pass the next
 // words of the Quran text, so the recogniser favours them over everyday Arabic look-alikes.
 const DIAC = /[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g;
+let phrasesOk = true;
+// Engines without biasing report 'phrases-not-supported': stop using it; the restart carries on without it.
+export function phrasesRefused(e) {
+  if (e?.error === 'phrases-not-supported') { phrasesOk = false; return true; }
+  return false;
+}
 export function biasTowards(rec, words) {
   try {
     const P = window.SpeechRecognitionPhrase;
-    if (!P || !('phrases' in rec)) return;
+    if (!phrasesOk || !P || !('phrases' in rec)) return;
     const seen = new Set(), list = [];
     for (const w of words) {
       const t = String(w).replace(DIAC, '').replace(/ٱ/g, 'ا').trim();
-      if (t && !seen.has(t)) { seen.add(t); list.push(new P(t, 6.0)); }
+      if (t.length >= 2 && !seen.has(t)) { seen.add(t); list.push(new P(t, list.length < 8 ? 6 : 3)); }   // the very next words count most
       if (list.length >= 40) break;
     }
     rec.phrases = list;
-  } catch {}
+  } catch { phrasesOk = false; }
 }
