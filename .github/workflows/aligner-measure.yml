@@ -18,7 +18,7 @@ jobs:
       - name: Tools and model
         run: |
           sudo apt-get update -y && sudo apt-get install -y ffmpeg
-          npm install --no-save onnxruntime-node@1.22.0
+          npm install --no-save onnxruntime-web@1.30.0
           mkdir -p model && gh release download qaaf-asr-model -D model -p 'qaaf-asr.onnx' -p 'features.json' -p 'vocab.json'
       - name: Recitations (two reciters the model never trained on, plus one it did)
         run: |
