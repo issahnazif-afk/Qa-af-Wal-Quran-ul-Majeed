@@ -1,0 +1,44 @@
+name: Speech - measure the Qāf tracker
+
+# Plays real EveryAyah recitations through the Qāf tracker exactly as the Recite page, the Hifz test and the
+# classroom run it, and reports how many words it follows, how quickly they turn green on a student laptop, how
+# many correctly recited words it flags, and whether it runs on past what was said. Run from Actions → Run workflow.
+on:
+  workflow_dispatch:
+
+jobs:
+  measure:
+    runs-on: ubuntu-24.04
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 22
+      - name: Tools and model
+        run: |
+          sudo apt-get update -y && sudo apt-get install -y ffmpeg
+          npm install --no-save onnxruntime-web@1.30.0
+          mkdir -p model && gh release download qaaf-asr-model -D model -p 'qaaf-asr.onnx' -p 'features.json' -p 'vocab.json'
+      - name: Recitations (two reciters the model never trained on, plus one it did)
+        run: |
+          mkdir -p audio
+          for r in Husary_128kbps Minshawy_Murattal_128kbps Alafasy_128kbps; do
+            for k in 001001 001002 001003 001004 001005 001006 001007 002002 002003 002004 002005 036001 036002 036003 036005 067001 067002 112001 112002 112003 112004 113001 113002 114001 114002; do
+              curl -sfL -o "audio/${r}__${k}.mp3" "https://everyayah.com/data/${r}/${k}.mp3" || true
+            done
+          done
+          ls audio | wc -l
+      - name: Measure
+        shell: bash
+        run: |
+          set -o pipefail
+          node tools/tracker/measure.mjs model audio 2>&1 | tee tracker-log.txt
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: tracker-report
+          path: |
+            tracker-report.txt
+            tracker-log.txt
