@@ -247,3 +247,14 @@ html[data-app] .mushaf-v2 .paper { width: min(100%, calc((100dvh - 150px) * 0.7)
 html[data-app] .practice .stage, html[data-app] .mushaf-v2 .spread { display: flex; justify-content: center; }
 .mp.dragging, .spread.dragging { transition: none !important; }
 .mp.settle { transition: transform .22s cubic-bezier(.2,.7,.2,1), opacity .22s; }
+
+/* ── Full screen (Recite and Hifz) ─────────────────────────────────
+   The Quran menu (.qbar) and the page's own controls stay; the site's header, intro and footer step aside, and the
+   mushaf page widens to most of the screen, so its text grows with it (fitPaper sizes the text to the page). */
+html.qfocus .site-header, html.qfocus .appbar, html.qfocus .site-footer, html.qfocus .practice #intro, html.qfocus .practice > .note, html.qfocus .practice > h1, html.qfocus .practice > .lead { display: none !important; }
+html.qfocus .practice.narrow, html.qfocus .practice.page { max-width: none !important; width: 100%; padding: 8px clamp(8px, 2vw, 24px) 0; }
+html.qfocus .practice .paper { max-width: min(1180px, 96vw); min-height: calc(100vh - 190px); min-height: calc(100dvh - 190px); }
+html.qfocus .hifz .paper { max-width: min(1000px, 70vw); }
+html.qfocus .practice .toolbar { top: 0; }
+.qbar .qbar-focus[aria-pressed="true"] { background: #E2C27A; color: #0E3B31; }
+@media (max-width: 700px) { .qbar .qbar-focus { font-size: 12px; padding: 0 8px; } }

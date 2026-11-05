@@ -26,6 +26,7 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
       <input id="qb-ayah" type="number" min="1" max={meta.surahs[s - 1].ayahs} value={a} style="width:72px" aria-label="Ayah" />
     </label>
     <button class="qbar-go" type="button" id="qb-go">Go</button>
+    {(mode === 'recite' || mode === 'hifz') && <button class="qbar-go qbar-focus" type="button" id="qb-focus" aria-pressed="false" title="Full screen: the page uses the whole screen; this menu stays">⤢ Full screen</button>}
     <span class="qbar-sep" aria-hidden="true"></span>
     <label>Script
       <select id="qb-script" aria-label="Script">
@@ -41,6 +42,7 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
     </label>
     <label>Listening
       <select id="qb-engine" aria-label="Listening engine">
+        <option value="track" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf tracker (on this device, fastest)' : 'Qāf tracker (model not published yet)'}</option>
         <option value="speech">Phone / browser speech</option>
         <option value="align" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf aligner (beta, fastest)' : 'Qāf aligner (model not published yet)'}</option>
         <option value="local" disabled={!meta.localAsr}>{meta.localAsr ? 'Qāf model (free transcription)' : 'Qāf model (not published yet)'}</option>
@@ -124,8 +126,9 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
 
   // listening engine: the phone's speech service, or the Qāf model running on the device
   const engSel = document.getElementById('qb-engine');
-  const engSaved = store.get('engine', 'speech');
-  engSel.value = (engSaved === 'local' || engSaved === 'align') && !engSel.querySelector(`option[value="${engSaved}"]`).disabled ? engSaved : 'speech';
+  const engSaved = store.get('engine', 'track');
+  const usable = (v) => engSel.querySelector(`option[value="${v}"]`) && !engSel.querySelector(`option[value="${v}"]`).disabled;
+  engSel.value = usable(engSaved) ? engSaved : usable('track') ? 'track' : 'speech';
   if (engSel.value !== engSaved) store.set('engine', engSel.value);
   engSel.addEventListener('change', () => {
     store.set('engine', engSel.value);
@@ -156,4 +159,28 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
     document.documentElement.dataset.script = scriptSel.value;
     document.dispatchEvent(new CustomEvent('ql:script', { detail: { script: scriptSel.value } }));
   });
+
+  // Full screen (Recite and Hifz): the mushaf page takes the whole screen, this menu and the page's controls stay.
+  const focusBtn = document.getElementById('qb-focus');
+  if (focusBtn) {
+    const fsEl = () => document.fullscreenElement || document.webkitFullscreenElement;
+    const setFocus = (on) => {
+      document.documentElement.classList.toggle('qfocus', on);
+      focusBtn.setAttribute('aria-pressed', String(on));
+      focusBtn.textContent = on ? '✕ Exit full screen' : '⤢ Full screen';
+      store.set('focus', on);
+      dispatchEvent(new Event('resize'));          // the page lays itself out again at the new size
+    };
+    focusBtn.addEventListener('click', async () => {
+      const on = !document.documentElement.classList.contains('qfocus');
+      setFocus(on);
+      try {
+        if (on && !fsEl()) await (document.documentElement.requestFullscreen || document.documentElement.webkitRequestFullscreen)?.call(document.documentElement, { navigationUI: 'hide' });
+        if (!on && fsEl()) await (document.exitFullscreen || document.webkitExitFullscreen)?.call(document);
+      } catch {}
+    });
+    // Esc leaves the browser's full screen; the wide layout stays until the button is pressed again
+    for (const ev of ['fullscreenchange', 'webkitfullscreenchange']) document.addEventListener(ev, () => dispatchEvent(new Event('resize')));
+    if (store.get('focus', false)) setFocus(true);   // remembered (without the browser's full screen, which needs a tap)
+  }
 </script>

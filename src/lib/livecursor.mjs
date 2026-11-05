@@ -78,9 +78,9 @@ export function createLiveCursor({ getFlat, getPos, onPage }) {
     async start() {
       if (on) return;
       // with the Qāf aligner the position comes from the aligner itself: no second microphone needed
-      let eng = 'speech';
-      try { eng = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
-      if (eng === 'align') {
+      let eng = 'track';
+      try { eng = JSON.parse(localStorage.getItem('ql-engine') || '"track"'); } catch {}
+      if (eng === 'align' || (eng === 'track' && document.body.dataset.localAsr === '1')) {
         on = true;
         const loop = () => {
           if (!on) return;

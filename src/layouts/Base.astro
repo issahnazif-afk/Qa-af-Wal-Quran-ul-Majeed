@@ -3,9 +3,11 @@ import '../styles/global.css';
 import cfg from '../../site.config.mjs';
 import { u } from '../lib/url.mjs';
 import AppBar from '../components/AppBar.astro';
+import { getMeta } from '../lib/data.mjs';
 
 interface Props { title?: string; description?: string; active?: string; app?: boolean; }
 const { title, description = 'Read, listen to and study the Quran from open, authentic sources.', active = '', app = false } = Astro.props;
+const localAsr = getMeta().localAsr ? '1' : '';   // the Qāf model is published with the app
 const fullTitle = title ? `${title} | ${cfg.appName}` : cfg.appName;
 const nav = [
   ['read', 'Listen', 'surah/1/'],
@@ -56,7 +58,7 @@ const nav = [
     })();
   </script>
 </head>
-<body>
+<body data-local-asr={localAsr}>
   <a class="visually-hidden" href="#main">Skip to content</a>
   <header class="site-header">
     <div class="wrap">

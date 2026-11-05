@@ -5,11 +5,17 @@
 
 import { LocalRecognition } from './asr-local.mjs';
 import { AlignRecognition } from './align-recognition.mjs';
+import { TrackRecognition, preloadTracker } from './track-recognition.mjs';
+
+// The Qāf tracker (track-recognition.mjs) follows the reader through the text on the device, in a worker, with a
+// live position: the default whenever the model is published with the app (meta.localAsr).
+const canTrack = () => typeof Worker === 'function' && typeof WebAssembly === 'object' && !!(window.AudioContext || window.webkitAudioContext) && !!navigator.mediaDevices?.getUserMedia;
+export const engineChoice = () => { let e = 'track'; try { e = JSON.parse(localStorage.getItem('ql-engine') || '"track"'); } catch {} return e; };
 
 // The reader can choose the on-device Qāf model (menu → Listening engine) once it is published.
 export function getSpeechRecognition() {
-  let engine = 'speech';
-  try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
+  const engine = engineChoice();
+  if (engine === 'track' && document.body.dataset.localAsr === '1' && canTrack()) return TrackRecognition;
   if (engine === 'align' && navigator.mediaDevices?.getUserMedia) return AlignRecognition;
   if (engine === 'local' && navigator.mediaDevices?.getUserMedia) return LocalRecognition;
   const cap = window.Capacitor;
@@ -120,8 +126,8 @@ export function tuneRecognition(rec) {
 
 // Start loading the on-device model as soon as the page opens, so it is ready before the reader starts.
 export function preloadEngine() {
-  let engine = 'speech';
-  try { engine = JSON.parse(localStorage.getItem('ql-engine') || '"speech"'); } catch {}
+  const engine = engineChoice();
+  if (engine === 'track' && document.body.dataset.localAsr === '1' && canTrack()) return preloadTracker();
   if (engine !== 'local' && engine !== 'align') return null;
   return import('./asr-local.mjs').then((m) => m.loadModel());
 }

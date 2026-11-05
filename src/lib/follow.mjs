@@ -74,6 +74,18 @@ export function createFollower(o) {
     const th = o.threshold();
     for (let r = from; r < results.length; r++) {
       const res = results[r];
+      // the Qāf tracker already knows which words were read and how: take its verdicts as they are
+      if (res.track) {
+        if (used[r] === -1) continue;
+        used[r] = -1;
+        for (const t of res.track) {
+          if (o.getPos() >= o.getFlat().length) break;
+          clearBack(); misses = 0;
+          if (t.kind === 'missed') { o.wrong('something else'); o.accept(1, 'unclear'); }
+          else o.accept(1, t.kind === 'weak' ? 'unclear' : undefined);
+        }
+        continue;
+      }
       const spoken = words(res[0]);
       let i = realign(r, spoken);
       while (i < spoken.length) {
