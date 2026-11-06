@@ -1,6 +1,7 @@
 ---
 // The bottom menu on every Quran view: what you are doing, where you are, and how the text looks.
 import { getMeta } from '../lib/data.mjs';
+import { THEMES } from '../lib/themes.mjs';
 interface Props { mode: 'listen' | 'mushaf' | 'recite' | 'hifz'; s?: number; a?: number; }
 const { mode, s = 1, a = 1 } = Astro.props;
 const meta = getMeta();
@@ -34,6 +35,13 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
         <option value="tajweed" disabled={!meta.tajweed}>{meta.tajweed ? 'Tajweed colours' : 'Tajweed (not built yet)'}</option>
       </select>
     </label>
+    <label>Reading theme
+      <select id="qb-paper" aria-label="Reading theme: the page and ink colours that suit your eyes">
+        <option value="">Site colours (light or dark)</option>
+        {THEMES.map(([key, name, , , why]) => <option value={key} title={why}>{name}</option>)}
+      </select>
+    </label>
+    <label class="qbar-bold"><input type="checkbox" id="qb-bold" /> Bolder letters</label>
     <label>Writing
       <select id="qb-reveal" aria-label="How words appear">
         <option value="instant">Instant (fastest)</option>
@@ -66,6 +74,21 @@ const riwayat = [['hafs', 'Hafs ʿan ʿĀṣim'], ...(meta.riwayat ?? []).map((r
   const surahSel = document.getElementById('qb-surah');
   const ayahIn = document.getElementById('qb-ayah');
   const scriptSel = document.getElementById('qb-script');
+
+  // reading theme and bolder letters: kept on this device; Base.astro applies them before the page paints
+  const paperSel = document.getElementById('qb-paper');
+  const boldBox = document.getElementById('qb-bold');
+  const root = document.documentElement;
+  paperSel.value = root.dataset.paper ?? '';
+  boldBox.checked = root.hasAttribute('data-bold');
+  paperSel.addEventListener('change', () => {
+    if (paperSel.value) root.dataset.paper = paperSel.value; else delete root.dataset.paper;
+    try { localStorage.setItem('ql-paper', paperSel.value); } catch {}
+  });
+  boldBox.addEventListener('change', () => {
+    root.toggleAttribute('data-bold', boldBox.checked);
+    try { localStorage.setItem('ql-bold', boldBox.checked ? '1' : ''); } catch {}
+  });
   const here = bar.dataset.mode;
 
   // start from where the reader last was, unless this view already knows

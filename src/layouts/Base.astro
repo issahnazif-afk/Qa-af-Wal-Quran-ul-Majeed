@@ -43,6 +43,9 @@ const nav = [
       try {
         var t = localStorage.getItem('ql-theme');
         if (t) document.documentElement.dataset.theme = t;
+        var pp = localStorage.getItem('ql-paper');
+        if (pp) document.documentElement.dataset.paper = pp;
+        if (localStorage.getItem('ql-bold')) document.documentElement.setAttribute('data-bold', '');
         // app mode: the mobile app's focus views (no site header or footer)
         var q = new URLSearchParams(location.search);
         var native = !!(window.Capacitor && window.Capacitor.isNativePlatform && window.Capacitor.isNativePlatform());

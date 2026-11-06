@@ -60,6 +60,18 @@ service; nothing is stored by this site).
 
 ## How quickly the words appear
 
+**The Qāf tracker** is now the default listening engine on the Recite page and the Hifz test, and in the
+classroom, wherever the Qāf model is published.
+
+- It follows the reader through the text on the device, in a background worker.
+- Words turn green about half a second after they are said.
+- The word being recited fills as it is said.
+- The menu's **Listening** setting can still choose browser speech.
+- **Full screen** in the Quran menu (Recite and Hifz) widens the page to the screen, and the text grows with it.
+
+See [docs/qaaf-tracker.md](docs/qaaf-tracker.md), and the **Speech - measure the Qāf tracker** workflow for
+results on real reciters.
+
 The words a student recites appear as soon as the speech engine hears them. To keep that fast:
 
 - **On-device listening (Chrome).** On the camera check, *Fast listening* shows whether Chrome can recognise
@@ -73,6 +85,18 @@ The words a student recites appear as soon as the speech engine hears them. To k
   so it keeps pace in long ayahs.
 
 Use **Chrome** on Windows or macOS for the fastest tracking.
+
+## Reading theme
+
+The Quran menu at the bottom of Mushaf, Listen, Recite and the Hifz test has a **Reading theme** choice, so each
+reader can pick the page that suits their sight. A theme sets the paper, the ink and the colours of the reading
+marks together: warm cream, bright white, low-glare sepia, soft green, calm blue (for readers who find white
+pages glare), high contrast, yellow on black, colour-blind safe (blue, orange and purple marks instead of green,
+red and gold) and night. **Site colours** keeps the page in the light or dark site theme, as before.
+**Bolder letters** thickens the Arabic on any theme. In the high-contrast, yellow and colour-blind themes, mistakes
+are also underlined, so they never rely on colour alone. Both choices are kept on the device (`ql-paper`,
+`ql-bold`) and applied before the page paints. The list is in `src/lib/themes.mjs`; the colours are at the end of
+`src/styles/global.css`.
 
 ## Alif Ba: Jannah Garden and Noor Lanterns
 

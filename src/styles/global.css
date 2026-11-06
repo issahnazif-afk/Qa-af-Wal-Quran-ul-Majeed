@@ -258,3 +258,36 @@ html.qfocus .hifz .paper { max-width: min(1000px, 70vw); }
 html.qfocus .practice .toolbar { top: 0; }
 .qbar .qbar-focus[aria-pressed="true"] { background: #E2C27A; color: #0E3B31; }
 @media (max-width: 700px) { .qbar .qbar-focus { font-size: 12px; padding: 0 8px; } }
+
+/* ── reading themes (Mushaf, Listen, Recite and the Hifz test) ──
+   Chosen in the Quran menu and kept on this device (ql-paper, ql-bold). Each theme sets the paper, the ink and
+   the colours of the reading marks together, so the marks stay readable on every paper. With no theme chosen
+   the page follows the light or dark site theme as before. The list and names are in src/lib/themes.mjs. */
+html[data-paper="cream"] { --paper: #FFFBF0; --paper-line: #C29F4B; --paper-ink: #6E5420; --q-ink: #1A1A17; --marker: #A8792A; }
+html[data-paper="white"] { --paper: #FFFFFF; --paper-line: #B8963E; --paper-ink: #5E4A1E; --q-ink: #111111; --marker: #A8792A; }
+html[data-paper="sepia"] { --paper: #F0E0C0; --paper-line: #9C7633; --paper-ink: #5B3F17; --q-ink: #2A1C0C; --marker: #8A5F20; }
+html[data-paper="green"] { --paper: #E6F1E8; --paper-line: #5E8F6C; --paper-ink: #2E5A3C; --q-ink: #12241A; --marker: #4E7A5B; }
+html[data-paper="blue"] { --paper: #E4EEF8; --paper-line: #5C7FA8; --paper-ink: #24456E; --q-ink: #0F1E33; --marker: #3E6492; }
+html[data-paper="contrast"] { --paper: #FFFFFF; --paper-line: #000000; --paper-ink: #000000; --q-ink: #000000; --marker: #000000; --q-bold: .022em; }
+html[data-paper="yellow"] { --paper: #000000; --paper-line: #FFE95C; --paper-ink: #FFE95C; --q-ink: #FFE95C; --marker: #FFE95C; --q-bold: .018em; }
+html[data-paper="cb"] { --paper: #FFFBF0; --paper-line: #C29F4B; --paper-ink: #6E5420; --q-ink: #1A1A17; --marker: #A8792A; }
+html[data-paper="night"] { --paper: #14201A; --paper-line: #9A7F45; --paper-ink: #D8C38E; --q-ink: #EEE7D4; --marker: #D8B867; }
+/* the reading surfaces take the theme's ink and marks: read (--good), mistake (--bad), hint (--gold), live word (--accent) */
+html[data-paper] :is(.paper, .mp, .surah-page .ayah, .surah-page .bism) { --ink: var(--q-ink); --muted: color-mix(in srgb, var(--q-ink) 62%, var(--paper)); background-color: var(--paper); color: var(--q-ink); border-color: var(--paper-line); }
+html[data-paper] .mp .mp-lines { color: var(--q-ink); }
+html[data-paper="sepia"] :is(.paper, .mp, .legend) { --good: #0F6E42; --bad: #A3221A; --gold: #7A4E0C; }
+html[data-paper="blue"] :is(.paper, .mp, .legend) { --good: #0E6B3E; --bad: #A61E1E; --gold: #7A4E0C; --accent: #2C5C9A; --accent-soft: #CFE0F3; }
+html[data-paper="contrast"] :is(.paper, .mp, .legend) { --good: #006B3C; --bad: #B00020; --gold: #6B3E00; --accent: #000000; --accent-soft: #FFE45C; }
+html[data-paper="yellow"] :is(.paper, .mp, .legend) { --good: #5CF2FF; --bad: #FF8FD0; --gold: #FFFFFF; --accent: #5CF2FF; --accent-soft: rgba(92, 242, 255, .22); }
+html[data-paper="cb"] :is(.paper, .mp, .legend) { --good: #0062A8; --bad: #C24E00; --gold: #7B3C9E; --accent: #0062A8; --accent-soft: #DCEBF7; }
+html[data-paper="night"] :is(.paper, .mp, .legend) { --good: #74D69C; --bad: #FF8F84; --gold: #E6C672; --accent: #74D69C; --accent-soft: rgba(116, 214, 156, .16); }
+/* in the strong themes, mistakes and the current word are also underlined, so they never rely on colour alone */
+html:is([data-paper="contrast"], [data-paper="yellow"], [data-paper="cb"]) .w.weak { box-shadow: inset 0 -3px 0 currentColor; }
+html:is([data-paper="contrast"], [data-paper="yellow"]) .w.current { box-shadow: inset 0 -4px 0 var(--accent) !important; background: var(--accent-soft); }
+html[data-paper="yellow"] .surah-page .ayah.playing { background-color: #1E1A00; }
+/* bolder letters: the Bolder letters option, and always on in the two contrast themes */
+html[data-bold] { --q-bold: .02em; }
+html:is([data-bold], [data-paper="contrast"], [data-paper="yellow"]) :is(.paper, .mp .mp-lines, .surah-page .quran) { -webkit-text-stroke: var(--q-bold) currentColor; paint-order: stroke fill; }
+.qbar .qbar-bold { display: inline-flex; flex-direction: row; align-items: center; align-self: flex-end; gap: 6px; min-height: 36px; white-space: nowrap; }
+.qbar .qbar-bold input { width: 18px; height: 18px; }
+html[data-paper] .surah-page .ayah .key { color: var(--paper-ink); }
